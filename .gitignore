@@ -1,4 +1,5 @@
 # Data directories
 /raw-data/
 data/
-
+/models/
+/.ipynb_checkpoints/
