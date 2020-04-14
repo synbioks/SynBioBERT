@@ -2,6 +2,7 @@
 
 import os, time, json
 import torch
+from torch.nn.functional import softmax
 from multi_tasking_transformers.heads import SubwordClassificationHead
 # from multi_tasking_transformers.multitaskers import MultiTaskingBert
 from transformers import BertConfig, BertForTokenClassification, BertModel
@@ -97,9 +98,6 @@ class InferNER(object):
     def prepare_document(self, text):
         """ Uses spacy sentencizer.
         """
-        head_name = os.path.basename(self.head_directory)
-        nlp = TransformersLanguage(trf_name=head_name, meta={"lang": "en"})  # TODO rename
-        nlp.add_pipe(nlp.create_pipe("sentencizer"))
         self.document_sentencized_generator = nlp(text)
         self.document = list(self.document_sentencized_generator.sents)
         self.sentence_encodings = [self.tokenizer.encode(str(sent)) for sent in self.document]  # The Spacy to HF-Tokenizers handoff.
@@ -155,13 +153,12 @@ class InferNER(object):
                 end = time.time()
                 print(f'Finished {i+1} of {len(self.input_ids)} predictions in {end - start:0.2f} seconds')
 
-
     def run_single_example(self, text):
         # head_name = os.path.basename(self.head_directory)
         # nlp = TransformersLanguage(trf_name=head_name, meta={"lang": "en"})
         # nlp.add_pipe(nlp.create_pipe("sentencizer"))
         sentencized_document = self.sentencizer(text)
-        self.sentence = str(list(sentencized_document.sents)[0]) # TODO break off into a separate method to use one sentence
+        # self.sentence = str(list(sentencized_document.sents)[0]) # TODO break off into a separate method to use one sentence
         # self.sentence = "The Ca2+ ionophore , A23187 or ionomycin , mimicked the effect of AVP , whereas the protein kinase C ( PKC ) activator , TPA , only induced a slight increase in AA release"
         # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
         self.sentence_encoding = self.tokenizer.encode(self.sentence)
@@ -205,20 +202,119 @@ class InferNER(object):
             self.output_table = pd.DataFrame.from_dict(
                 {'tokens': self.output_tokens, 'labels': self.output_labels, 'spans': self.output_spans})
 
+
+    def run_document(self, path_to_document):
+        with open(path_to_document, encoding='utf8') as f, \
+            open('conll_test.txt', 'w') as outfile:
+            document_as_string = f.read()  # does this work for large documents?
+
+        self.output_dict = {'tokens': [],
+                            'sentence_spans': [],
+                            'document_spans': [],
+                            'probability': [],
+                            'labels': []
+                            }
+
+        sentencized_document = self.sentencizer(document_as_string)
+        number_of_sentences = len(list(sentencized_document.sents))
+        test_stop = 20
+        number_of_sentences = test_stop
+        for sentence_idx, sentence in enumerate(sentencized_document.sents):
+            annotation_start = time.time()
+            print(f'\nAnnotating sentence {sentence_idx} of {number_of_sentences}')
+            if sentence_idx > test_stop:
+                break
+
+            self.sentence = sentence
+            self.sentence_idx = sentence_idx
+            # self.sentence = str(list(sentencized_document.sents)[0]) # TODO break off into a separate method to use one sentence
+            # self.sentence = "The Ca2+ ionophore , A23187 or ionomycin , mimicked the effect of AVP , whereas the protein kinase C ( PKC ) activator , TPA , only induced a slight increase in AA release"
+            # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
+            self.sentence_encoding = self.tokenizer.encode(self.sentence.string)
+
+            # PREPARE MODEL INPUT
+            input_ids = torch.tensor([self.sentence_encoding.ids], dtype=torch.long, device=self.device)
+            attention_mask = torch.tensor([self.sentence_encoding.attention_mask], dtype=torch.long, device=self.device)
+            token_type_ids = torch.tensor([self.sentence_encoding.type_ids], dtype=torch.long, device=self.device)
+            self.document = sentencized_document
+            self.tokens = self.sentence_encoding.tokens
+            self.spans = self.sentence_encoding.offsets
+            self.input_ids = input_ids
+
+            # RUN EXAMPLE THROUGH BERT
+            self.bert.eval()
+            self.head.eval()
+            with torch.no_grad():
+                print(f"BERT Head: {self.head}")
+                self.bert_outputs = self.bert(input_ids=input_ids,
+                                              attention_mask=attention_mask,
+                                              # token_type_ids=token_type_ids,
+                                              token_type_ids=None,
+                                              position_ids=None)[0]
+                self.subword_scores = self.head(self.bert_outputs)[0]
+                # self.predicted_label_keys = self.subword_scores.max(dim=2).indices[0]
+                # self.predicted_label_keys = self.subword_scores.max(2)[1][0]  # to run in batch mode, [0] to i
+                self.subword_scores_softmax = softmax(self.subword_scores, dim=2)  # Get probabilities for each label
+
+                self.predicted_label_keys = self.subword_scores_softmax.max(2)[1][0]
+                self.predicted_label_probabilities = self.subword_scores_softmax.max(2)[0][0].numpy()
+
+                self.labels = sorted(self.head.config.labels)
+                self.predicted_labels = [self.labels[label_key] for label_key in self.predicted_label_keys.numpy()]
+
+                # sentence_subword_length = self.sentence_encoding.special_tokens_mask.count(0)
+                token_mask = self.sentence_encoding.special_tokens_mask
+
+                # List of indices containing subwords
+                subwords_idx = [index_of_subword for index_of_subword, mask in enumerate(token_mask) if mask == 0]
+
+                self.predicted_label_probabilities = [self.predicted_label_probabilities[i] for i in subwords_idx]
+                self.output_tokens = [self.sentence_encoding.tokens[i] for i in subwords_idx]
+                # Print subword spans
+                self.output_spans_within_sentence = [" ".join([str(span_idx) for span_idx in self.sentence_encoding.offsets[i]])
+                                                     for i in subwords_idx]
+                self.output_spans_within_document = [" ".join([str(span_idx + self.sentence.start_char) for span_idx in self.sentence_encoding.offsets[i]])
+                                                     for i in subwords_idx]
+                # Print labels
+                self.output_labels = [self.predicted_labels[i].replace("NP", "Gene_BERT") for i in subwords_idx]  # Generalize to task type
+
+                # Update document output
+                self.output_dict['tokens'] = self.output_dict['tokens'] + self.output_tokens
+                self.output_dict['sentence_spans'] = self.output_dict['sentence_spans'] + self.output_spans_within_sentence
+                self.output_dict['document_spans'] = self.output_dict['document_spans'] + self.output_spans_within_document
+                self.output_dict['probability'] = self.output_dict['probability'] + self.predicted_label_probabilities
+                self.output_dict['labels'] = self.output_dict['labels'] + self.output_labels
+                # self.output_table = pd.DataFrame.from_dict(
+                #     {'tokens': self.output_tokens,
+                #      'sentence_spans': self.output_spans_within_sentence,
+                #      'document_spans': self.output_spans_within_document,
+                #      'labels': self.output_labels
+                #      })
+
+                annotation_end = time.time()
+                print(f'finished sentence {sentence_idx} of {number_of_sentences} in {annotation_end-annotation_start:0.2f} seconds')
+        self.output_table = pd.DataFrame.from_dict(self.output_dict)
+        foo.output_table.to_csv('example_output.tsv', sep='\t', header=True, index=True)
+
+
+    def run_all_documents(self, path_to_document_dir):
+        # os.path.
+        pass
+
     def __str__(self):
         return self.document.sents
-
 
 start = time.time()
 PATH_TO_VOCAB = 'models/vocab.txt'
 # data_dir = 'raw-data'
 # PATH_TO_MODEL = "../models"
-PATH_TO_FILE = r'C:/Users/User/nlp/projects/synbiobert/raw-data/ACS-100/sb3/sb3000723.txt'
+PATH_TO_FILE = r'C:/Users/User/nlp/projects/synbiobert/raw-data/ACS-100/sb6/sb6b00371.txt'
 # PATH_TO_BASE_MODEL = r'C:/Users/User/nlp/projects/synbiobert/models/biobert_v1.1_pubmed'
 with open(PATH_TO_FILE, encoding='utf8') as f:
     document_as_string = f.read()  # does this work for large documents?
 foo = InferNER(r"C:\Users\User\nlp\projects\synbiobert\models\SubwordClassificationHead_iepa_gene_checkpoint_20")
-foo.run_single_example(document_as_string)
+# foo.run_single_example(document_as_string)
+foo.run_document(PATH_TO_FILE)
 # foo.infer_document(document_as_string)
 end = time.time()
 print(f'Finished in {end - start:0.2f} seconds')
