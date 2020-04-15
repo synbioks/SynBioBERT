@@ -1,0 +1,11 @@
+device: 'cuda'
+experiment_name: 'bert_inference'
+
+# HEADS
+path_to_heads:
+  cellline: /home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_gellus_cellline_checkpoint_20
+  chemical: /home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_chebi_chemical_checkpoint_5
+  gene: /home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_variome_species_checkpoint_10
+  species: /home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_variome_species_checkpoint_20
+
+path_to_documents:
