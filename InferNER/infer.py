@@ -66,7 +66,7 @@ class InferNER(object):
         # TODO visualize
         # TODO fine-tune best epoch with all data.
 
-    def run_document(self, path_to_document, output_filename=None):
+    def run_document(self, path_to_document, output_filename=None, output_directory="."):
         with open(path_to_document, encoding='utf8') as f:
             document_as_string = f.read()  # does this work for large documents?
 
@@ -159,9 +159,9 @@ class InferNER(object):
 
         self.output_table = pd.DataFrame.from_dict(self.output_dict)
         if output_filename:
-            foo.output_table.to_csv(output_filename, sep='\t', header=True, index=True, index_label="#")
+            foo.output_table.to_csv(os.path.join(output_directory, output_filename), sep='\t', header=True, index=True, index_label="#")
         else:
-            foo.output_table.to_csv('example_output.tsv', sep='\t', header=True, index=True, index_label="#")
+            foo.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
 
     def run_single_example(self, text):
         # head_name = os.path.basename(self.head_directory)
@@ -213,9 +213,11 @@ class InferNER(object):
             self.output_table = pd.DataFrame.from_dict(
                 {'tokens': self.output_tokens, 'labels': self.output_labels, 'spans': self.output_spans})
 
-    def run_all_documents(self, path_to_document_dir):
-        # os.path.
-        pass
+    def run_all_documents(self, path_to_document_dir, output_directory="."):
+        for input_document in os.listdir(path_to_document_dir):
+            output_basename = os.path.basename(input_document) + "biobert_annotated"
+            output_filename = output_basename + ".tsv"
+            self.run_document(input_document, output_filename, output_directory)
 
     def __str__(self):
         return self.document.sents
