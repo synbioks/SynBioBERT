@@ -1,7 +1,7 @@
 description: ''
 
 device: 'cuda'
-experiment_name: 'annotate_ACS100'
+experiment_name: 'finetune_fulltext_huner'
 
 # HEADS
 paths_to_heads:
