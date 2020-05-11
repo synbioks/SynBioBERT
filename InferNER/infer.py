@@ -164,6 +164,8 @@ class InferNER(object):
             foo.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
 
     def run_all_documents(self, path_to_document_dir, output_directory="."):
+        if not os.path.exists(output_directory):
+            os.makedir(output_directory)
         for input_document in os.listdir(path_to_document_dir):
             output_basename = os.path.basename(input_document) + "biobert_annotated"
             output_filename = output_basename + ".tsv"
@@ -240,12 +242,19 @@ head_configs = [re.search("SubwordClassification.+json", filename) for x in tupl
 head_configs = [x.group() for x in head_configs if x]
 # print(head_configs)
 foo = InferNER(head_directories=config['paths_to_heads'], head_configs=head_configs, device=config['device'])
+### RUN SINGLE SENTENCE ###
 # foo.run_single_example(document_as_string)
-foo.run_document(PATH_TO_FILE)
+
+### RUN SINGLE DOCUMENT ###
+# foo.run_document(PATH_TO_FILE)
+
+### RUN DOCUMENTS IN DIRECTORY
+for i in range(10):
+    foo.run_all_documents(path_to_document_dir=f'raw-data/ACS-100/sb{i}',
+                          output_directory='biobert_annotated')
+
 end = time.time()
 print(f'Finished in {end - start:0.2f} seconds')
 
-# Note: document prep is lossy
-# TODO output conll
 # TODO create output summary method
 # TODO download other model
