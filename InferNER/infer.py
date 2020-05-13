@@ -14,6 +14,7 @@ import pandas as pd
 
 
 class InferNER(object):
+
     def __init__(self, head_directories, head_configs, device=None):
         """
 
@@ -32,12 +33,12 @@ class InferNER(object):
         for i, head in enumerate(head_directories):
             # LOAD BASE MODEL
             print('Loading BERT pre-trained model {head}')
-            self.bert = BertModel.from_pretrained(head_directories[head], from_tf=False)
+            self.bert = BertModel.from_pretrained(head, from_tf=False)
             # LOAD HEAD
             print(f'Loading {head}')
-            path_to_head_config = os.path.join(head_directories[head], head_configs[i])
-            self.path_to_vocab = os.path.join(head_directories[head], 'vocab.txt')
-            self.head_directory = head_directories[head]
+            path_to_head_config = os.path.join(head, head_configs[i])
+            self.path_to_vocab = os.path.join(head, 'vocab.txt')
+            self.head_directory = head
             self.head_config = BertConfig.from_pretrained(path_to_head_config)
             head_config_dict = json.load(open(os.path.join(self.head_directory, head_configs[i]), 'rb'))
             self.head = SubwordClassificationHead(head_config_dict['head_task'], labels=head_config_dict['labels'])
@@ -59,12 +60,12 @@ class InferNER(object):
 
         print('Loaded BERT head, config, tokenizer, and sentencizer')
         self.labels = sorted(self.head.config.labels)  # Fine-tuning may have been done on sorted labels.
-        # TODO predict each sentence in batches
-        # TODO All heads
-        # TODO merge tokens
-        # TODO All docs
-        # TODO visualize
         # TODO fine-tune best epoch with all data.
+        # TODO merge tokens
+        # TODO visualize
+        # TODO Stats
+        # TODO predict each sentence in batches
+
 
     def run_document(self, path_to_document, output_filename=None, output_directory="."):
         with open(path_to_document, encoding='utf8') as f:
@@ -81,7 +82,6 @@ class InferNER(object):
         number_of_sentences = len(list(sentencized_document.sents))
         test_stop = 10000000
         # number_of_sentences = test_stop
-        # TODO add all heads loop here
         for model in self.models:
             self.head = model['head']
             self.bert = model['base']
@@ -94,7 +94,7 @@ class InferNER(object):
 
                 self.sentence = sentence
                 self.sentence_idx = sentence_idx
-                # self.sentence = str(list(sentencized_document.sents)[0]) # TODO break off into a separate method to use one sentence
+                # self.sentence = str(list(sentencized_document.sents)[0])
                 # self.sentence = "The Ca2+ ionophore , A23187 or ionomycin , mimicked the effect of AVP , whereas the protein kinase C ( PKC ) activator , TPA , only induced a slight increase in AA release"
                 # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
                 self.sentence_encoding = self.tokenizer.encode(self.sentence.string)
@@ -110,9 +110,11 @@ class InferNER(object):
 
                 # RUN EXAMPLE THROUGH BERT
                 self.bert.eval()
-                self.bert.to(device=self.device)
+                if not next(self.bert.parameters()).is_cuda:
+                    self.bert.to(device=self.device)
                 self.head.eval()
-                self.head.to(device=self.device)
+                if not next(self.head.parameters()).is_cuda:
+                    self.head.to(device=self.device)
                 with torch.no_grad():
                     print(f"BERT Head: {self.head}")
                     print(f"On {self.device} device")
@@ -159,68 +161,20 @@ class InferNER(object):
 
         self.output_table = pd.DataFrame.from_dict(self.output_dict)
         if output_filename:
-            foo.output_table.to_csv(os.path.join(output_directory, output_filename), sep='\t', header=True, index=True, index_label="#")
+            self.output_table.to_csv(os.path.join(output_directory, output_filename), sep='\t', header=True, index=True, index_label="#")
         else:
-            foo.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
+            self.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
 
     def run_all_documents(self, path_to_document_dir, output_directory="."):
         if not os.path.exists(output_directory):
-            os.makedir(output_directory)
+            os.makedirs(output_directory)
         for input_document in os.listdir(path_to_document_dir):
-            output_basename = os.path.basename(input_document) + "biobert_annotated"
+            if not input_document.endswith(".txt"):
+                continue
+            output_basename = os.path.basename(input_document).replace('.txt', '') + "_biobert_annotated"
             output_filename = output_basename + ".tsv"
-            self.run_document(input_document, output_filename, output_directory)
-
-    def run_single_example(self, text):
-        # head_name = os.path.basename(self.head_directory)
-        # nlp = TransformersLanguage(trf_name=head_name, meta={"lang": "en"})
-        # nlp.add_pipe(nlp.create_pipe("sentencizer"))
-        sentencized_document = self.sentencizer(text)
-        # self.sentence = str(list(sentencized_document.sents)[0]) # TODO break off into a separate method to use one sentence
-        # self.sentence = "The Ca2+ ionophore , A23187 or ionomycin , mimicked the effect of AVP , whereas the protein kinase C ( PKC ) activator , TPA , only induced a slight increase in AA release"
-        # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
-        self.sentence_encoding = self.tokenizer.encode(self.sentence)
-
-        # PREPARE MODEL INPUT
-        input_ids = torch.tensor([self.sentence_encoding.ids], dtype=torch.long)
-        attention_mask = torch.tensor([self.sentence_encoding.attention_mask], dtype=torch.long)
-        token_type_ids = torch.tensor([self.sentence_encoding.type_ids], dtype=torch.long)
-        self.document = sentencized_document
-        self.tokens = self.sentence_encoding.tokens
-        self.spans = self.sentence_encoding.offsets
-        self.input_ids = input_ids
-
-        # RUN EXAMPLE THROUGH BERT
-        self.bert.eval()
-        self.bert.to(device=self.device)
-        with torch.no_grad():
-            print(f"Predicting {self.head}")
-            self.bert_outputs = self.bert(input_ids=input_ids,
-                                attention_mask=attention_mask,
-                                # token_type_ids=token_type_ids,
-                                token_type_ids=None,
-                                position_ids=None)[0]
-            self.subword_scores = self.head(self.bert_outputs)[0]
-            # self.predicted_label_keys = self.subword_scores.max(dim=2).indices[0]
-            self.predicted_label_keys = self.subword_scores.max(2)[1][0]  # to run in batch mode, [0] to i
-
-            self.labels = sorted(self.head.config.labels)
-            self.predicted_labels = [self.labels[label_key] for label_key in self.predicted_label_keys]
-
-            sentence_subword_length = self.sentence_encoding.special_tokens_mask.count(0)
-            token_mask = self.sentence_encoding.special_tokens_mask
-
-            subwords_idx = [index_of_subword for index_of_subword, mask in enumerate(token_mask) if mask==0]
-
-            # Print tokenized sentence
-            self.output_tokens = [self.sentence_encoding.tokens[i] for i in subwords_idx]
-            # Print subword spans
-            self.output_spans = [str(self.sentence_encoding.offsets[i]) for i in subwords_idx]
-            # Print labels
-            self.output_labels = [self.predicted_labels[i] for i in subwords_idx]
-            self.output_table = pd.DataFrame.from_dict(
-                {'tokens': self.output_tokens, 'labels': self.output_labels, 'spans': self.output_spans})
-
+            print(f'Running document {input_document}. Saving Results to {output_directory}/{output_filename}')
+            self.run_document(os.path.join(path_to_document_dir, input_document), output_filename, output_directory)
 
 
     def __str__(self):
@@ -231,17 +185,18 @@ start = time.time()
 # data_dir = 'raw-data'
 # PATH_TO_MODEL = "../models"
 # PATH_TO_BASE_MODEL = r'C:/Users/User/nlp/projects/synbiobert/models/biobert_v1.1_pubmed'
-PATH_TO_FILE = r'raw-data/ACS-100/sb6/sb6b00371.txt'
-with open(PATH_TO_FILE, encoding='utf8') as f:
-    document_as_string = f.read()  # does this work for large documents?
+# PATH_TO_FILE = r'raw-data/ACS-100/sb6/sb6b00371.txt'
+# with open(PATH_TO_FILE, encoding='utf8') as f:
+#     document_as_string = f.read()  # does this work for large documents?
 
 # foo = InferNER(r"/home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_variome_species_checkpoint_10",
 #                "SubwordClassificationHead_variome_species.json", device='cpu')
-config = yaml.safe_load(open('InferNER/config.yml'))
-head_configs = [re.search("SubwordClassification.+json", filename) for x in tuple(config['paths_to_heads'].values()) for filename in os.listdir(x)]
+# config = yaml.safe_load(open('InferNER/config.yml'))
+config = yaml.safe_load(open('../Experiments/annotate_ACS100_20200410_0726/config.yml'))
+all_head_paths = sum(list(config['paths_to_heads'].values()), [])
+head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename in os.listdir(path_to_head)]
 head_configs = [x.group() for x in head_configs if x]
-# print(head_configs)
-foo = InferNER(head_directories=config['paths_to_heads'], head_configs=head_configs, device=config['device'])
+foo = InferNER(head_directories=all_head_paths, head_configs=head_configs, device=config['device'])
 ### RUN SINGLE SENTENCE ###
 # foo.run_single_example(document_as_string)
 
@@ -249,12 +204,10 @@ foo = InferNER(head_directories=config['paths_to_heads'], head_configs=head_conf
 # foo.run_document(PATH_TO_FILE)
 
 ### RUN DOCUMENTS IN DIRECTORY
-for i in range(10):
-    foo.run_all_documents(path_to_document_dir=f'raw-data/ACS-100/sb{i}',
+for i in range(3, 10):
+    print(f'working on ACS-100/sb{i}')
+    foo.run_all_documents(path_to_document_dir=f'../raw-data/ACS-100/sb{i}',
                           output_directory='biobert_annotated')
 
 end = time.time()
 print(f'Finished in {end - start:0.2f} seconds')
-
-# TODO create output summary method
-# TODO download other model
