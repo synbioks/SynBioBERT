@@ -1,6 +1,6 @@
 """predict entities using pre-trained/fine-tuned bert model"""
 
-import os, time, json, yaml, re
+import os, time, json, yaml, re, argparse
 import torch
 from torch.nn.functional import softmax
 from multi_tasking_transformers.heads import SubwordClassificationHead
@@ -12,6 +12,10 @@ from tokenizers import BertWordPieceTokenizer
 from spacy_transformers import TransformersLanguage
 import pandas as pd
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--dry-run", action='store_true', help='dry run') # by default it stores false
+parser.add_argument("--force-run", action='store_true', help='Causes documents with existing output files to be overwritten.')
+args = parser.parse_args()
 
 class InferNER(object):
 
@@ -60,7 +64,8 @@ class InferNER(object):
 
         print('Loaded BERT head, config, tokenizer, and sentencizer')
         self.labels = sorted(self.head.config.labels)  # Fine-tuning may have been done on sorted labels.
-        # TODO fine-tune best epoch with all data.
+        # TODO fix entity type labeler
+        # DONE TODO skip docs w/ existing outputs
         # TODO merge tokens
         # TODO visualize
         # TODO Stats
@@ -68,6 +73,12 @@ class InferNER(object):
 
 
     def run_document(self, path_to_document, output_filename=None, output_directory="."):
+
+        output_filename_fullpath = os.path.join(output_directory, output_filename)
+        if os.path.exists(output_filename_fullpath):
+            print(f"{output_filename_fullpath} exists, skipping")
+            return
+
         with open(path_to_document, encoding='utf8') as f:
             document_as_string = f.read()  # does this work for large documents?
 
@@ -161,7 +172,7 @@ class InferNER(object):
 
         self.output_table = pd.DataFrame.from_dict(self.output_dict)
         if output_filename:
-            self.output_table.to_csv(os.path.join(output_directory, output_filename), sep='\t', header=True, index=True, index_label="#")
+            self.output_table.to_csv(output_filename_fullpath, sep='\t', header=True, index=True, index_label="#")
         else:
             self.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
 
@@ -190,13 +201,16 @@ start = time.time()
 #     document_as_string = f.read()  # does this work for large documents?
 
 # foo = InferNER(r"/home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_variome_species_checkpoint_10",
-#                "SubwordClassificationHead_variome_species.json", device='cpu')
-# config = yaml.safe_load(open('InferNER/config.yml'))
-config = yaml.safe_load(open('../Experiments/annotate_ACS100_20200410_0726/config.yml'))
+               # "SubwordClassificationHead_variome_species.json", device='cpu')
+config = yaml.safe_load(open('config.yml'))
+# config = yaml.safe_load(open('../Experiments/annotate_ACS100_20200410_0726/config.yml'))
 all_head_paths = sum(list(config['paths_to_heads'].values()), [])
 head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename in os.listdir(path_to_head)]
 head_configs = [x.group() for x in head_configs if x]
-foo = InferNER(head_directories=all_head_paths, head_configs=head_configs, device=config['device'])
+
+foo = InferNER(all_head_paths, head_configs, device='cuda')
+foo.run_all_documents(path_to_document_dir='.', output_directory='huner_biobert_annotated')
+
 ### RUN SINGLE SENTENCE ###
 # foo.run_single_example(document_as_string)
 
@@ -204,10 +218,11 @@ foo = InferNER(head_directories=all_head_paths, head_configs=head_configs, devic
 # foo.run_document(PATH_TO_FILE)
 
 ### RUN DOCUMENTS IN DIRECTORY
-for i in range(3, 10):
-    print(f'working on ACS-100/sb{i}')
-    foo.run_all_documents(path_to_document_dir=f'../raw-data/ACS-100/sb{i}',
-                          output_directory='biobert_annotated')
+# for i in range(3, 10):
+#     print(f'working on ACS-100/sb{i}')
+#     foo.run_all_documents(path_to_document_dir=f'../raw-data/ACS-100/sb{i}',
+#                           output_directory='huner_biobert_annotated')
+
 
 end = time.time()
 print(f'Finished in {end - start:0.2f} seconds')
