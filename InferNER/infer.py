@@ -19,7 +19,8 @@ args = parser.parse_args()
 
 class InferNER(object):
 
-    def __init__(self, head_directories, head_configs, device=None):
+    def __init__(self, head_directories, head_configs, device=None,
+                 from_huner=True):
         """
 
         :param head_directories:
@@ -47,7 +48,8 @@ class InferNER(object):
             head_config_dict = json.load(open(os.path.join(self.head_directory, head_configs[i]), 'rb'))
             self.head = SubwordClassificationHead(head_config_dict['head_task'], labels=head_config_dict['labels'])
             print(self.head.from_pretrained(self.head_directory))
-            self.models.append({'head': self.head, 'base': self.bert, 'entity_type': head})
+            self.models.append({'head': self.head, 'base': self.bert, 'entity_type': head.split('_')[-3],
+                                'dataset': head.split('_')[-4]})
 
         # LOAD TOKENIZER AND SET OPTIONS
         print('Loading Tokenizer and setting options')
@@ -64,6 +66,8 @@ class InferNER(object):
 
         print('Loaded BERT head, config, tokenizer, and sentencizer')
         self.labels = sorted(self.head.config.labels)  # Fine-tuning may have been done on sorted labels.
+
+        self.from_huner = from_huner
         # TODO fix entity type labeler
         # DONE TODO skip docs w/ existing outputs
         # TODO merge tokens
@@ -96,6 +100,20 @@ class InferNER(object):
         for model in self.models:
             self.head = model['head']
             self.bert = model['base']
+
+
+            if self.from_huner:
+                model_entity_type = model['entity_type']
+                model_dataset = model['dataset']
+                document_entity_type = os.path.basename(path_to_document).split("_")[0]
+                document_dataset = os.path.basename(path_to_document).split("_")[1].replace('.txt', '')
+                if model_entity_type != document_entity_type:
+                    print(model_entity_type, document_entity_type)
+                    continue
+                if model_dataset != document_dataset:
+                    print(model_dataset, document_dataset)
+                    continue
+
             for sentence_idx, sentence in enumerate(sentencized_document.sents):
                 annotation_start = time.time()
                 if sentence_idx > test_stop:
@@ -109,6 +127,8 @@ class InferNER(object):
                 # self.sentence = "The Ca2+ ionophore , A23187 or ionomycin , mimicked the effect of AVP , whereas the protein kinase C ( PKC ) activator , TPA , only induced a slight increase in AA release"
                 # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
                 self.sentence_encoding = self.tokenizer.encode(self.sentence.string)
+                if len(self.sentence_encoding) > 512:
+                    print(self.sentence)
 
                 # PREPARE MODEL INPUT
                 input_ids = torch.tensor([self.sentence_encoding.ids], dtype=torch.long)
@@ -170,11 +190,12 @@ class InferNER(object):
                     annotation_end = time.time()
                     print(f'finished sentence {sentence_idx} of {number_of_sentences} in {annotation_end-annotation_start:0.2f} seconds')
 
-        self.output_table = pd.DataFrame.from_dict(self.output_dict)
-        if output_filename:
-            self.output_table.to_csv(output_filename_fullpath, sep='\t', header=True, index=True, index_label="#")
-        else:
-            self.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
+        if self.output_dict:
+            self.output_table = pd.DataFrame.from_dict(self.output_dict)
+            if output_filename:
+                self.output_table.to_csv(output_filename_fullpath, sep='\t', header=True, index=True, index_label="#")
+            else:
+                self.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
 
     def run_all_documents(self, path_to_document_dir, output_directory="."):
         if not os.path.exists(output_directory):
@@ -208,8 +229,8 @@ all_head_paths = sum(list(config['paths_to_heads'].values()), [])
 head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename in os.listdir(path_to_head)]
 head_configs = [x.group() for x in head_configs if x]
 
-foo = InferNER(all_head_paths, head_configs, device='cuda')
-foo.run_all_documents(path_to_document_dir='.', output_directory='huner_biobert_annotated')
+foo = InferNER(all_head_paths, head_configs, device=config['device'])
+foo.run_all_documents(path_to_document_dir=config['path_to_documents'], output_directory=config['experiment_name'])
 
 ### RUN SINGLE SENTENCE ###
 # foo.run_single_example(document_as_string)
