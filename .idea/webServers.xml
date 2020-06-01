@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="56285b51-157f-4e6b-8455-1d8864474791" name="pine" url="http://pine.cs.vcu.edu">
+        <fileTransfer host="pine.cs.vcu.edu" port="22" rootFolder="/home/rodriguezne2" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

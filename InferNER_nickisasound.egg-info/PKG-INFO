@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: InferNER-nickisasound
+Version: 0.0.1
+Summary: UNKNOWN
+Home-page: UNKNOWN
+Author: Nicholas Rodriguez
+Author-email: rodriguezne2@vcu.edu
+License: UNKNOWN
+Description: # synbiobert
+        
+        HUNER Fine-tuned Heads in /home/rodriguezne2/results/multitasking_transformers/bert
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
