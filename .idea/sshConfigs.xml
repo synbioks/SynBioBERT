@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="pine.cs.vcu.edu" id="5ba4f0af-0d98-4bd5-9275-2473919a38f5" port="22" customName="pine" nameFormat="CUSTOM" />
+    </configs>
+  </component>
+</project>
