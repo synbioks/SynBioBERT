@@ -1,13 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="BRANCH:add_MTT_predict" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </select>
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="8775235c-3e04-4c18-91a2-bf8de6b6d24e" name="Default Changelist" comment="ran on huner">
-      <change afterPath="$PROJECT_DIR$/InferNER/convert_huner_to_brat.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/InferNER/annotate_ACS100.sh" beforeDir="false" afterPath="$PROJECT_DIR$/InferNER/annotate_ACS100.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/InferNER/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/InferNER/config.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/InferNER/get_best_epochs.py" beforeDir="false" afterPath="$PROJECT_DIR$/InferNER/get_best_epochs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/InferNER/infer.py" beforeDir="false" afterPath="$PROJECT_DIR$/InferNER/infer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/InferNER/parse_output.py" beforeDir="false" afterPath="$PROJECT_DIR$/InferNER/parse_output.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,9 +47,6 @@
     <expand />
     <select />
   </component>
-  <component name="FavoritesManager">
-    <favorites_list name="synbiobert" />
-  </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
@@ -42,21 +58,22 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="annotate_document" />
+        <entry key="$PROJECT_DIR$" value="master" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="JupyterTrust" id="2236a856-74aa-4e9f-8364-eacbff83a832" />
+  <component name="JupyterTrust" id="669d49b5-08cb-4b5f-bdb7-6db31c364147" />
   <component name="ProjectId" id="1ZKUoTws2FEC8PRgSt4zSGTg7FR" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showExcludedFiles" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
     <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="true" />
     <property name="WebServerToolWindowPanel.toolwindow.highlight.mappings" value="true" />
     <property name="WebServerToolWindowPanel.toolwindow.highlight.symlinks" value="true" />
@@ -64,7 +81,7 @@
     <property name="WebServerToolWindowPanel.toolwindow.show.permissions" value="false" />
     <property name="WebServerToolWindowPanel.toolwindow.show.size" value="false" />
     <property name="add_unversioned_files" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/InferNER" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../multi_tasking_transformers" />
     <property name="settings.editor.selected.configurable" value="PERL5_MAIN_SETTINGS" />
   </component>
   <component name="PyConsoleOptionsProvider">
@@ -119,6 +136,9 @@
       <module name="synbiobert" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/InferNER" />
       <option name="IS_MODULE_SDK" value="true" />
@@ -157,9 +177,12 @@
       <method v="2" />
     </configuration>
     <configuration name="convert_huner_to_brat.sh" type="ShConfigurationType" temporary="true">
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
       <option name="SCRIPT_PATH" value="$PROJECT_DIR$/InferNER/convert_huner_to_brat.sh" />
       <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
       <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/InferNER" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
       <option name="INTERPRETER_PATH" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <method v="2" />
@@ -180,18 +203,6 @@
         <item itemvalue="Python.preprocess" />
       </list>
     </recent_temporary>
-  </component>
-  <component name="ServiceViewManager">
-    <option name="viewStates">
-      <list>
-        <serviceView>
-          <treeState>
-            <expand />
-            <select />
-          </treeState>
-        </serviceView>
-      </list>
-    </option>
   </component>
   <component name="SshConsoleOptionsProvider">
     <option name="myEncoding" value="UTF-8" />
@@ -235,6 +246,7 @@
       <workItem from="1589853984462" duration="249000" />
       <workItem from="1589901056402" duration="2503000" />
       <workItem from="1589903652863" duration="12948000" />
+      <workItem from="1591030009912" duration="1782000" />
     </task>
     <task id="LOCAL-00001" summary="sentencized document, subword-tokenized text, created alignment from tokens to tensors.">
       <created>1585465983012</created>
@@ -345,7 +357,7 @@
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
-    <option name="version" value="1" />
+    <option name="version" value="2" />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
     <option name="TAB_STATES">
@@ -353,12 +365,23 @@
         <entry key="MAIN">
           <value>
             <State>
-              <option name="COLUMN_ORDER" />
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="add_MTT_predict" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
             </State>
           </value>
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_NEW_TODO" value="false" />
@@ -447,11 +470,12 @@
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="92" y="92" width="1736" height="856" key="DirDiffDialog/1920.0.1093.582/0.0.1920.1040@0.0.1920.1040" timestamp="1586897174844" />
-    <state x="740" y="274" key="FileChooserDialogImpl" timestamp="1586897541883">
-      <screen x="0" y="0" width="1920" height="1040" />
+    <state x="740" y="304" width="424" height="491" key="FileChooserDialogImpl" timestamp="1591045916914">
+      <screen x="0" y="27" width="1920" height="1053" />
     </state>
     <state x="740" y="274" key="FileChooserDialogImpl/-1366.313.1093.582/0.0.1920.1040@0.0.1920.1040" timestamp="1586283833716" />
     <state x="740" y="274" key="FileChooserDialogImpl/0.0.1920.1040@0.0.1920.1040" timestamp="1586803461231" />
+    <state x="740" y="304" width="424" height="491" key="FileChooserDialogImpl/0.27.1920.1053/1920.147.1366.768@0.27.1920.1053" timestamp="1591045916914" />
     <state x="740" y="274" key="FileChooserDialogImpl/1920.0.1093.582/0.0.1920.1040@0.0.1920.1040" timestamp="1586897541883" />
     <state width="1879" height="346" key="GridCell.Tab.0.bottom" timestamp="1589831766230">
       <screen x="0" y="0" width="1920" height="1040" />
@@ -579,12 +603,13 @@
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="601" y="246" width="700" height="530" key="recent.locations.popup/-1366.313.1093.582/0.0.1920.1040@0.0.1920.1040" timestamp="1585166405975" />
-    <state x="623" y="225" width="672" height="678" key="search.everywhere.popup" timestamp="1589913950546">
-      <screen x="0" y="0" width="1920" height="1040" />
+    <state x="623" y="255" width="672" height="687" key="search.everywhere.popup" timestamp="1591030038996">
+      <screen x="0" y="27" width="1920" height="1053" />
     </state>
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/-1366.313.1093.582/0.0.1920.1040@0.0.1920.1040" timestamp="1586525947221" />
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/-1366.313.1366.728/0.0.1920.1040@0.0.1920.1040" timestamp="1584833285833" />
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/0.0.1920.1040@0.0.1920.1040" timestamp="1586794422685" />
+    <state x="623" y="255" width="672" height="687" key="search.everywhere.popup/0.27.1920.1053/1920.147.1366.768@0.27.1920.1053" timestamp="1591030038996" />
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/1920.0.1093.582/0.0.1920.1040@0.0.1920.1040" timestamp="1586901158833" />
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/1920.0.1366.728/0.0.1920.1040@0.0.1920.1040" timestamp="1589390797407" />
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/1920.217.1366.728/0.0.1920.1040@0.0.1920.1040" timestamp="1589913950546" />
@@ -594,10 +619,10 @@
     <state x="682" y="432" key="vcs.readOnlyHandler.ReadOnlyStatusDialog/-1366.313.1366.728/0.0.1920.1040@0.0.1920.1040" timestamp="1584587992946" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/synbiobert$parse_output.coverage" NAME="parse_output Coverage Results" MODIFIED="1589831658478" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/InferNER" />
     <SUITE FILE_PATH="coverage/synbiobert$predict.coverage" NAME="predict Coverage Results" MODIFIED="1585170778796" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/synbiobert$modeling_bert.coverage" NAME="modeling_bert Coverage Results" MODIFIED="1585371027556" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Anaconda3/envs/synbiobert/Lib/site-packages/transformers" />
-    <SUITE FILE_PATH="coverage/synbiobert$infer.coverage" NAME="infer Coverage Results" MODIFIED="1589303498120" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/synbiobert$preprocess.coverage" NAME="preprocess Coverage Results" MODIFIED="1585457388565" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/InferNER" />
-    <SUITE FILE_PATH="coverage/synbiobert$parse_output.coverage" NAME="parse_output Coverage Results" MODIFIED="1589831658478" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/InferNER" />
+    <SUITE FILE_PATH="coverage/synbiobert$infer.coverage" NAME="infer Coverage Results" MODIFIED="1589303498120" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
