@@ -13,8 +13,9 @@ Objectives:
 
 import os
 import yaml
-import torch
 from warnings import warn
+import torch
+from NER import Annotation
 
 def flatten_alignments(alignments):
     flats = []
@@ -96,18 +97,18 @@ def align_to_tokens(input_directory,
                                  )
 
 
-def merge_with_gold_standard(results, dataset_name, type, gold_standard_file):
+def merge_with_gold_standard(results, dataset_name, type, gold_standard_file, output_dir='aligned_merged_with_gold_standard'):
     are_gold_and_predicted_same_len, gold_len, results_len = test_gold_and_predicted(results, gold_standard_file)
     if not are_gold_and_predicted_same_len:
         warn(
             f'Tokens in gold standard ({gold_len}) and predictions ({results_len}) do not match for {dataset_name} {type}.')
-    if not os.path.exists('aligned_merged_with_gold_standard'):
-        os.makedirs('aligned_merged_with_gold_standard')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     # ---Start the merge---
     gold_token_index = 0
     with open(gold_standard_file, 'r') as gold_file, \
-            open(os.path.join('aligned_merged_with_gold_standard', f'{dataset_name}_{type}.conll'), 'w') as outfile:
+            open(os.path.join(output_dir, f'{dataset_name}_{type}.conll'), 'w') as outfile:
         for i, line in enumerate(gold_file):
             line = line.strip()
             if line == '' or line.startswith("-DOCSTART- X X O"):
@@ -170,6 +171,8 @@ if __name__ == '__main__':
                 merge_gold_standard=True,
                 gold_standard_dir='/home/nick/projects/multi_tasking_transformers/experiments/biomedical_datasets/biomedical_datasets/huner/data'
             )
+
+
 
 # ### Some useful function
 # from biomedical_datasets.huner import load_huner_dataset
