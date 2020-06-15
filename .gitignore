@@ -3,3 +3,4 @@
 data/
 /models/
 /.ipynb_checkpoints/
+/Experiments/convert_biobert_output_to_brat/aligned_merged_with_gold_standard/*.conll
