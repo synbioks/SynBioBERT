@@ -13,14 +13,16 @@ from spacy_transformers import TransformersLanguage
 import pandas as pd
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dry-run", action='store_true', help='dry run') # by default it stores false
-parser.add_argument("--force-run", action='store_true', help='Causes documents with existing output files to be overwritten.')
+parser.add_argument("--dry-run", action='store_true', help='dry run')  # by default it stores false
+parser.add_argument("--force-run", action='store_true',
+                    help='Causes documents with existing output files to be overwritten.')
 args = parser.parse_args()
+
 
 class InferNER(object):
 
     def __init__(self, head_directories, head_configs, device=None,
-                 from_huner=True):
+                 from_huner=False):
         """
 
         :param head_directories:
@@ -37,7 +39,7 @@ class InferNER(object):
         self.models = []
         for i, head in enumerate(head_directories):
             # LOAD BASE MODEL
-            print('Loading BERT pre-trained model {head}')
+            print(f'Loading BERT pre-trained model {head}')
             self.bert = BertModel.from_pretrained(head, from_tf=False)
             # LOAD HEAD
             print(f'Loading {head}')
@@ -54,7 +56,7 @@ class InferNER(object):
         # LOAD TOKENIZER AND SET OPTIONS
         print('Loading Tokenizer and setting options')
         self.tokenizer = BertWordPieceTokenizer(self.path_to_vocab,
-                                                lowercase=False)
+                                                lowercase=False)  # TODO make this configurablle
         self.tokenizer.enable_padding(direction='right',
                                       pad_id=0,
                                       max_length=self.head_config.max_position_embeddings)
@@ -68,13 +70,10 @@ class InferNER(object):
         self.labels = sorted(self.head.config.labels)  # Fine-tuning may have been done on sorted labels.
 
         self.from_huner = from_huner
-        # TODO fix entity type labeler
-        # DONE TODO skip docs w/ existing outputs
-        # TODO merge tokens
+        # TODO align output to document tokens.
         # TODO visualize
         # TODO Stats
         # TODO predict each sentence in batches
-
 
     def run_document(self, path_to_document, output_filename=None, output_directory="."):
 
@@ -100,7 +99,6 @@ class InferNER(object):
         for model in self.models:
             self.head = model['head']
             self.bert = model['base']
-
 
             if self.from_huner:
                 model_entity_type = model['entity_type']
@@ -157,13 +155,15 @@ class InferNER(object):
                                                   token_type_ids=None,
                                                   position_ids=None)[0]
                     self.subword_scores = self.head(self.bert_outputs)[0]
-                    self.subword_scores_softmax = softmax(self.subword_scores, dim=2)  # Get probabilities for each label
+                    self.subword_scores_softmax = softmax(self.subword_scores,
+                                                          dim=2)  # Get probabilities for each label
 
                     self.predicted_label_keys = self.subword_scores_softmax.max(2)[1][0]
                     self.predicted_label_probabilities = self.subword_scores_softmax.max(2)[0][0].cpu().numpy()
 
                     self.labels = sorted(self.head.config.labels)
-                    self.predicted_labels = [self.labels[label_key] for label_key in self.predicted_label_keys.cpu().numpy()]
+                    self.predicted_labels = [self.labels[label_key] for label_key in
+                                             self.predicted_label_keys.cpu().numpy()]
 
                     # sentence_subword_length = self.sentence_encoding.special_tokens_mask.count(0)
                     token_mask = self.sentence_encoding.special_tokens_mask
@@ -174,76 +174,93 @@ class InferNER(object):
                     self.predicted_label_probabilities = [self.predicted_label_probabilities[i] for i in subwords_idx]
                     self.output_tokens = [self.sentence_encoding.tokens[i] for i in subwords_idx]
                     # Print subword spans
-                    self.output_spans_within_sentence = [" ".join([str(span_idx) for span_idx in self.sentence_encoding.offsets[i]])
-                                                         for i in subwords_idx]
-                    self.output_spans_within_document = [" ".join([str(span_idx + self.sentence.start_char) for span_idx in self.sentence_encoding.offsets[i]])
+                    self.output_spans_within_sentence = [
+                        " ".join([str(span_idx) for span_idx in self.sentence_encoding.offsets[i]])
+                        for i in subwords_idx]
+                    self.output_spans_within_document = [" ".join(
+                        [str(span_idx + self.sentence.start_char) for span_idx in self.sentence_encoding.offsets[i]])
                                                          for i in subwords_idx]
                     # Print labels
-                    self.output_labels = [self.predicted_labels[i].replace("NP", model['entity_type']) for i in subwords_idx]  # Generalize to task type
+                    self.output_labels = [self.predicted_labels[i].replace("NP", model['entity_type']) for i in
+                                          subwords_idx]  # Generalize to task type
 
                     # Update document output
                     self.output_dict['tokens'] = self.output_dict['tokens'] + self.output_tokens
-                    self.output_dict['sentence_spans'] = self.output_dict['sentence_spans'] + self.output_spans_within_sentence
-                    self.output_dict['document_spans'] = self.output_dict['document_spans'] + self.output_spans_within_document
-                    self.output_dict['probability'] = self.output_dict['probability'] + self.predicted_label_probabilities
+                    self.output_dict['sentence_spans'] = self.output_dict[
+                                                             'sentence_spans'] + self.output_spans_within_sentence
+                    self.output_dict['document_spans'] = self.output_dict[
+                                                             'document_spans'] + self.output_spans_within_document
+                    self.output_dict['probability'] = self.output_dict[
+                                                          'probability'] + self.predicted_label_probabilities
                     self.output_dict['labels'] = self.output_dict['labels'] + self.output_labels
                     annotation_end = time.time()
-                    print(f'finished sentence {sentence_idx} of {number_of_sentences} in {annotation_end-annotation_start:0.2f} seconds')
+                    print(
+                        f'finished sentence {sentence_idx} of {number_of_sentences} in {annotation_end - annotation_start:0.2f} seconds')
 
         if self.output_dict:
             self.output_table = pd.DataFrame.from_dict(self.output_dict)
             if output_filename:
                 self.output_table.to_csv(output_filename_fullpath, sep='\t', header=True, index=True, index_label="#")
             else:
-                self.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True, index=True, index_label="#")
+                self.output_table.to_csv(os.path.join(output_directory, 'example_output.tsv'), sep='\t', header=True,
+                                         index=True, index_label="#")
 
-    def run_all_documents(self, path_to_document_dir, output_directory="."):
+    def run_all_documents(self, path_to_document_dir, output_directory=".", recursive=False):
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
-        for input_document in os.listdir(path_to_document_dir):
+        file_list = []
+        if recursive:
+            for root, directories, filenames in os.walk(path_to_document_dir):
+                for filename in filenames:
+                    file_list.append(os.path.join(root, filename))
+        else:
+            for filename in os.listdir(path_to_document_dir):
+                file_list.append(os.path.join(path_to_document_dir, filename))
+        for input_document in file_list:
             if not input_document.endswith(".txt"):
                 continue
             output_basename = os.path.basename(input_document).replace('.txt', '') + "_biobert_annotated"
             output_filename = output_basename + ".tsv"
-            print(f'Running document {input_document}. Saving Results to {output_directory}/{output_filename}')
-            self.run_document(os.path.join(path_to_document_dir, input_document), output_filename, output_directory)
-
+            print(f'Running document {input_document}. \nSaving Results to {output_directory}/{output_filename}')
+            self.run_document(input_document, output_filename, output_directory)
 
     def __str__(self):
         return self.document.sents
 
-start = time.time()
-# PATH_TO_VOCAB = 'models/vocab.txt'
-# data_dir = 'raw-data'
-# PATH_TO_MODEL = "../models"
-# PATH_TO_BASE_MODEL = r'C:/Users/User/nlp/projects/synbiobert/models/biobert_v1.1_pubmed'
-# PATH_TO_FILE = r'raw-data/ACS-100/sb6/sb6b00371.txt'
-# with open(PATH_TO_FILE, encoding='utf8') as f:
-#     document_as_string = f.read()  # does this work for large documents?
 
-# foo = InferNER(r"/home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_variome_species_checkpoint_10",
-               # "SubwordClassificationHead_variome_species.json", device='cpu')
-config = yaml.safe_load(open('config.yml'))
-# config = yaml.safe_load(open('../Experiments/annotate_ACS100_20200410_0726/config.yml'))
-all_head_paths = sum(list(config['paths_to_heads'].values()), [])
-head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename in os.listdir(path_to_head)]
-head_configs = [x.group() for x in head_configs if x]
+if __name__ == '__main__':
+    start = time.time()
+    # PATH_TO_VOCAB = 'models/vocab.txt'
+    # data_dir = 'raw-data'
+    # PATH_TO_MODEL = "../models"
+    # PATH_TO_BASE_MODEL = r'C:/Users/User/nlp/projects/synbiobert/models/biobert_v1.1_pubmed'
+    # PATH_TO_FILE = r'raw-data/ACS-100/sb6/sb6b00371.txt'
+    # with open(PATH_TO_FILE, encoding='utf8') as f:
+    #     document_as_string = f.read()  # does this work for large documents?
 
-foo = InferNER(all_head_paths, head_configs, device=config['device'])
-foo.run_all_documents(path_to_document_dir=config['path_to_documents'], output_directory=config['experiment_name'])
+    # foo = InferNER(r"/home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_variome_species_checkpoint_10",
+    # "SubwordClassificationHead_variome_species.json", device='cpu')
+    config = yaml.safe_load(open('config.yml'))
+    # config = yaml.safe_load(open('../Experiments/annotate_ACS100_20200410_0726/config.yml'))
+    all_head_paths = sum(list(config['paths_to_heads'].values()), [])
+    head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename
+                    in os.listdir(path_to_head)]
+    head_configs = [x.group() for x in head_configs if x]
 
-### RUN SINGLE SENTENCE ###
-# foo.run_single_example(document_as_string)
+    foo = InferNER(all_head_paths, head_configs, device=config['device'])
+    foo.run_all_documents(path_to_document_dir=config['path_to_documents'], output_directory=config['experiment_name'])
 
-### RUN SINGLE DOCUMENT ###
-# foo.run_document(PATH_TO_FILE)
+    ### RUN SINGLE SENTENCE ###
+    # foo.run_single_example(document_as_string)
 
-### RUN DOCUMENTS IN DIRECTORY
-# for i in range(3, 10):
-#     print(f'working on ACS-100/sb{i}')
-#     foo.run_all_documents(path_to_document_dir=f'../raw-data/ACS-100/sb{i}',
-#                           output_directory='huner_biobert_annotated')
+    ### RUN SINGLE DOCUMENT ###
+    # foo.run_document(PATH_TO_FILE)
 
+    ### RUN DOCUMENTS IN DIRECTORY
+    # for i in range(3, 10):
+    #     print(f'working on ACS-100/sb{i}')
+    #     foo.run_all_documents(path_to_document_dir=f'../raw-data/ACS-100/sb{i}',
+    #                           output_directory='huner_biobert_annotated')
 
-end = time.time()
-print(f'Finished in {end - start:0.2f} seconds')
+    end = time.time()
+    print(f'Finished in {end - start:0.2f} seconds')

@@ -11,7 +11,7 @@ if not os.path.exists(annotation_dir):
 
 for type in huner_datasets:
     for dataset_name in huner_datasets[type]:
-        annotation = Annotation(os.path.join('aligned_merged_with_gold_standard', f'{dataset_name}_{type}.conll')).from_conll().conll2brat()
+        annotation = Annotation(os.path.join('aligned_merged_with_gold_standard', f'{dataset_name}_{type}.conll')).conll2brat()
 
         # Write out annotation and text files in BRAT format
         output_text_file_path = os.path.join(annotation_dir, f'{dataset_name}_{type}.txt')
@@ -23,6 +23,3 @@ for type in huner_datasets:
                 output_line = f'{line[0]}\t{line[1]} {line[2]} {line[3]}\t{line[4]}'
                 print(output_line, file=output_annotation_file)
             print(annotation.document_string, file=output_text_file)
-
-
-

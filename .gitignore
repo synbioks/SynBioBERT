@@ -3,4 +3,5 @@
 data/
 /models/
 /.ipynb_checkpoints/
-/Experiments/convert_biobert_output_to_brat/aligned_merged_with_gold_standard/*.conll
+Experiments/convert_biobert_output_to_brat/aligned_merged_with_gold_standard/*.conll
+./Experiments/annotate_ASC100_20200619/subtoken_label_probabilities
