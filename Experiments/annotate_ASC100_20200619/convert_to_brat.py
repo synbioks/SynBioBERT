@@ -163,6 +163,9 @@ def test_subword_mapping(mapped_subword, subword_token):
             warnings.warn(f'"{mapped_subword}": {len(mapped_subword)} "{subword_token}": {len(subword_token)}')
 
 
+def filter_document_by_id(documents, document_id):
+    """Returns the first document who's filename begins with the document_id"""
+    return [path for path in documents if os.path.basename(path).startswith(document_id)][0]
 
 
 if __name__ == '__main__':
@@ -213,7 +216,7 @@ if __name__ == '__main__':
 
     # BRAT CONVERSION
     for document_id, subword_predictions_path in zip(document_ids, subword_predictions_paths):
-        document_path = [path for path in document_paths if os.path.basename(path).startswith(document_id)][0]
+        document_path = filter_document_by_id(document_paths, document_id)
         output_ann_path = os.path.join("results/data", f"{document_id}")
         inferner = InferNERUtils(head_dir, head_configs, model_loading_device=config['device'])
         inferner.load_document(path_to_document=document_path)
