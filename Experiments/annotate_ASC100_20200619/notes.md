@@ -67,6 +67,8 @@ Brat Conversion program
 
 ## Issues
 
+1. The annotated text doesn't match. BRAT complains.  
+
 1. **Document text files used for inter-annotator agreement**. Gaurav did the XML conversion without Jacob's script. Ideally, we should use Jacob's
 but doing so may affect the Comparison of BioBERT, Kevin, HUNER.  
 

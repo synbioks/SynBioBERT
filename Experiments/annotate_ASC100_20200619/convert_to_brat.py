@@ -5,43 +5,67 @@ import os
 class InferNERUtils(InferNER):
     def __init__(self, head_directories, head_configs, model_loading_device=None, document=""):
         super(InferNERUtils, self).__init__(head_directories, head_configs, model_loading_device)
-        self.document = document  # does this work for large documents?
+        self.document = document
 
-    def sentencize_document(self, path_to_document, output_filename=None, output_directory="."):
+    def load_document(self, path_to_document):
         assert path_to_document.endswith('.txt')
-        if not output_filename:
-            output_filename = os.path.basename(path_to_document).replace('.txt', '.out')
-
-        output_filename_fullpath = os.path.join(output_directory, output_filename)
-        if os.path.exists(output_filename_fullpath):
-            print(f"{output_filename_fullpath} exists, skipping")
-            return
 
         # LOAD RAW DATA AND SENTENCIZE
         with open(path_to_document, encoding='utf8') as f:
-            self.document = f.read()
-            sentencized_document = self.sentencizer(self.document)
-            # number_of_sentences = len(list(sentencized_document.sents))
-            return sentencized_document
+            self.document = f.read() # does this work for large documents?
+        return self.document
+
+    def sentencize_document(self):
+        sentencized_document = self.sentencizer(self.document)
+        return sentencized_document
 
     def join_subword_predictions(self, subword_predictions):
         annotations = []
         for subword in subword_predictions:
             mapped_subword = self.document[subword.start: subword.end]
-            # test_subword_mapping(mapped_subword, subword.token)  # tODO deal with special characters
+            test_subword_mapping(mapped_subword, subword.token)
             subword.original_token = mapped_subword
             if not subword.token.startswith('##'):
-                annotations.append([subword.original_token,
-                                    subword.start,
-                                    subword.end,
-                                    subword.label.title(),
-                                    subword.score
-                                    ])
+                annotations.append(BertAnnotation(subword.original_token,
+                                                  subword.start,
+                                                  subword.end,
+                                                  subword.label.title(),
+                                                  subword.score
+                                                  )
+                                   )
             else:
                 anno = annotations[-1]
-                anno[0] += subword.original_token
-                anno[2] = subword.end
+                anno.end = subword.end
+                anno.token = self.document[anno.start: subword.end]  # TODO instead, remap new span
         return annotations
+
+    def bert_to_brat(self, annotations):
+        # annotations = [BratAnnotation(token, start, end, label)
+        #                for token, start, end, label, score in predictions]
+        brat_annotations = []
+        T_index = 1
+        previous = Annotation('', 0, 0, 'O')
+
+        for i, current in enumerate(annotations):
+            # current.label = current.label if current.label.startswith(('B-', 'I-')) else 'O'  # changes BERT_TOKEN to 'O'
+
+            if current.label.startswith('B-') or (
+                    current.label.startswith('I-') and previous.label in ['O', 'Bert_Token']):
+                current.label = current.label.replace('B-', '').replace('I-', '')
+                current.index = T_index
+                brat_annotations.append(current)
+                T_index += 1
+                previous = current
+
+            elif current.label.startswith('I-'):
+                anno = brat_annotations[-1]
+                anno.token = self.document[anno.start: current.end]
+                anno.end = current.end
+                previous = current
+
+            else:
+                previous = current
+        return brat_annotations
 
     @staticmethod
     def parse_predictions(path):
@@ -133,41 +157,12 @@ class BratAnnotation(Annotation):
 
 
 def test_subword_mapping(mapped_subword, subword_token):
+    import warnings
     if not mapped_subword == subword_token.replace('##', ''):
-        assert len(mapped_subword) == len(subword_token), \
-            f'''"{mapped_subword}": {len(mapped_subword)}
-                    "{subword_token}": {len(subword_token)}'''
+         if not len(mapped_subword) == len(subword_token): \
+            warnings.warn(f'"{mapped_subword}": {len(mapped_subword)} "{subword_token}": {len(subword_token)}')
 
 
-def bert_to_brat(predictions):
-    annotations = [BratAnnotation(token, start, end, label)
-                   for token, start, end, label, score in predictions]
-    brat_annotations = []
-    T_index = 1
-    previous = Annotation('', 0, 0, 'O')
-
-    for i, current in enumerate(annotations):
-        # current.label = current.label if current.label.startswith(('B-', 'I-')) else 'O'
-
-        # previous = annotations[i-1] if i > 0 else Annotation('',0,0,'O')
-
-        if current.label.startswith('B-') or (current.label.startswith('I-') and previous.label in ['O', 'Bert_Token']):
-            current.label = current.label.replace('B-', '').replace('I-', '')
-            current.index = T_index
-            brat_annotations.append(current)
-            T_index += 1
-            previous = current
-
-        elif current.label.startswith('I-'):
-            brat_annotations[-1].token += f' {current.token}'
-            brat_annotations[-1].end = current.end
-            previous = current
-
-        else:
-            # brat_annotations.append(current)
-            # assert current.label == 'O', f"{current.start}, {i}, {current.label}, {previous.label}"
-            previous = current
-    return brat_annotations
 
 
 if __name__ == '__main__':
@@ -186,8 +181,12 @@ if __name__ == '__main__':
     brat_annotations = bert_to_brat(predictions)
     inferner.write_brat(output_ann_path)
     '''
+    import time
     import yaml
 
+    start = time.time()
+
+    # LOAD DATA AND MODELS
     with open('convert_to_brat_config.yml') as yml:
         config = yaml.safe_load(yml)
     head_dir = config['paths_to_heads']['chemical']
@@ -211,14 +210,17 @@ if __name__ == '__main__':
     if not os.path.exists('results/data'):
         os.makedirs('results/data')
 
+
+    # BRAT CONVERSION
     for document_id, subword_predictions_path in zip(document_ids, subword_predictions_paths):
-        if not document_id == 'sb5b00080':
-            continue
         document_path = [path for path in document_paths if os.path.basename(path).startswith(document_id)][0]
         output_ann_path = os.path.join("results/data", f"{document_id}")
         inferner = InferNERUtils(head_dir, head_configs, model_loading_device=config['device'])
-        inferner.sentencize_document(path_to_document=document_path)
+        inferner.load_document(path_to_document=document_path)
         subword_predictions = inferner.parse_predictions(subword_predictions_path)
         predictions = inferner.join_subword_predictions(subword_predictions)
-        brat_annotations = bert_to_brat(predictions)
+        brat_annotations = inferner.bert_to_brat(predictions)
         inferner.write_brat(brat_annotations, output_ann_path)
+
+    end = time.time()
+    print(f'Finished in {end - start:0.2f} seconds')
