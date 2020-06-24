@@ -22,12 +22,14 @@ args = parser.parse_args()
 class InferNER(object):
 
     def __init__(self, head_directories, head_configs, device=None,
-                 from_huner=False):
+                 from_huner=False, lowercase=False):
         """
 
-        :param head_directories:
-        :param head_configs:
-        :param device:
+        :param head_directories: list containing the directory paths to the head models.
+        :param head_configs: a list containing the paths to the head config files.
+        :param device: One of 'cpu' or 'cuda'. Defaults to 'cpu'.
+        :param lowercase: preprocessing option. If predicting an entity type,
+            like Gene, where the case matters, set to False (default).
         """
         # SET DEVICE
         if not device:
@@ -36,6 +38,8 @@ class InferNER(object):
             self.device = device
 
         assert len(head_directories) == len(head_configs)
+
+        # LOAD TOKENIZER AND MODELS
         self.models = []
         for i, head in enumerate(head_directories):
             # LOAD BASE MODEL
@@ -49,21 +53,25 @@ class InferNER(object):
             self.head_config = BertConfig.from_pretrained(path_to_head_config)
             head_config_dict = json.load(open(os.path.join(self.head_directory, head_configs[i]), 'rb'))
             self.head = SubwordClassificationHead(head_config_dict['head_task'], labels=head_config_dict['labels'])
-            print(self.head.from_pretrained(self.head_directory))
-            self.models.append({'head': self.head, 'base': self.bert, 'entity_type': head.split('_')[-3],
+            print(self.head.from_pretrained(self.head_directory, device=self.device))
+
+            # Collect models
+            self.models.append({'head': self.head,
+                                'base': self.bert,
+                                'entity_type': head.split('_')[-3],
                                 'dataset': head.split('_')[-4]})
 
         # LOAD TOKENIZER AND SET OPTIONS
         print('Loading Tokenizer and setting options')
-        self.tokenizer = BertWordPieceTokenizer(self.path_to_vocab,
-                                                lowercase=False)  # TODO make this configurablle
+        self.tokenizer = BertWordPieceTokenizer(self.path_to_vocab,  # uses last head loaded for vocab
+                                                lowercase=lowercase)
         self.tokenizer.enable_padding(direction='right',
                                       pad_id=0,
                                       max_length=self.head_config.max_position_embeddings)
 
-        # Construct Sentencizer
+        # CONSTRUCT PROCESSORS
         head_name = os.path.basename(self.head_directory)
-        self.sentencizer = TransformersLanguage(trf_name=head_name, meta={"lang": "en"})  # TODO rename
+        self.sentencizer = TransformersLanguage(trf_name=head_name, meta={"lang": "en"})
         self.sentencizer.add_pipe(self.sentencizer.create_pipe("sentencizer"))
 
         print('Loaded BERT head, config, tokenizer, and sentencizer')

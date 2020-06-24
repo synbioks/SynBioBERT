@@ -26,11 +26,20 @@ Annotate ACS using BioBERT.
 
 Create alignment between tokens in document text and processed subtoken encodings. 
 
-**INPUT**.  Raw data directory (see Issue 1) 
+#### INPUT  
+
+1. Raw data directory (see Issue 1) 
 
     /home/nick/projects/synbiobert/raw-data/ACS-100/
     
-**OUTPUT**. Processed data directory
+2. Head Directory
+    
+    /home/nick/projects/synbiobert/models/SubwordClassificationHead_iepa_gene_checkpoint_20
+       
+    
+#### OUTPUT. 
+
+1. Processed data directory
 
     /home/nick/projects/synbiobert/data/ACS-100
 
