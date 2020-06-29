@@ -1,1 +1,1 @@
-from .annotation import Annotation
+from .conll2brat import Conll2Brat

@@ -1,6 +1,6 @@
 import yaml
 import os
-from NER import Annotation
+from NER import Conll2Brat
 from data import get_huner_datasets
 from biomedical_datasets.huner import batch_gold_standard_annotation
 
@@ -17,7 +17,7 @@ def conll2brat_bert_predictions(config_path, huner_datasets, annotation_dir):
 
     for type in huner_datasets:
         for dataset_name in huner_datasets[type]:
-            annotation = Annotation(
+            annotation = Conll2Brat(
                 os.path.join('aligned_merged_with_gold_standard', f'{dataset_name}_{type}.conll')).conll2brat()
 
             # Write out annotation and text files in BRAT format

@@ -168,6 +168,37 @@ def filter_document_by_id(documents, document_id):
     return [path for path in documents if os.path.basename(path).startswith(document_id)][0]
 
 
+def gather_documents(document_directory):
+    global document_paths, root, directories, filenames, filename
+
+    document_paths = []
+    for root, directories, filenames in os.walk(document_directory):
+        for filename in filenames:
+            if filename.endswith('.txt'):
+                document_paths.append(os.path.join(root, filename))
+    return document_paths
+
+def load_models(config_yml):
+    with open(config_yml) as yml:
+        config = yaml.safe_load(yml)
+    head_dir = config['paths_to_heads']['chemical']
+    head_configs = [os.path.join(head_dir[0], f) for f in os.listdir(head_dir[0]) if
+                    f.endswith('.json') and f.startswith("SubwordClassification")]
+    return config, head_configs, head_dir
+
+
+def gather_predictions(subword_predictions_directory):
+    subword_predictions_paths = []
+    for root, directories, filenames in os.walk(subword_predictions_directory):
+        for filename in filenames:
+            if filename.endswith('.tsv'):
+                subword_predictions_paths.append(os.path.join(root, filename))
+    doc_ids = [os.path.basename(x).replace('_biobert_annotated.tsv', '') for x in subword_predictions_paths]
+    if not os.path.exists('results/data'):
+        os.makedirs('results/data')
+    return doc_ids, subword_predictions_paths
+
+
 if __name__ == '__main__':
     '''EXAMPLE
     head_dir = ["/home/nick/projects/synbiobert/models/SubwordClassificationHead_iepa_gene_checkpoint_20"]
@@ -189,41 +220,47 @@ if __name__ == '__main__':
 
     start = time.time()
 
-    # LOAD DATA AND MODELS
-    with open('convert_to_brat_config.yml') as yml:
-        config = yaml.safe_load(yml)
-    head_dir = config['paths_to_heads']['chemical']
-    head_configs = [os.path.join(head_dir[0], f) for f in os.listdir(head_dir[0]) if
-                    f.endswith('.json') and f.startswith("SubwordClassification")]
-
     document_dir = "/home/nick/projects/synbiobert/raw-data/ACS-100"
-    document_paths = []
-    for root, directories, filenames in os.walk(document_dir):
-        for filename in filenames:
-            if filename.endswith('.txt'):
-                document_paths.append(os.path.join(root, filename))
-
     subword_predictions_dir = "subtoken_label_probabilities"
-    subword_predictions_paths = []
-    for root, directories, filenames in os.walk(subword_predictions_dir):
-        for filename in filenames:
-            if filename.endswith('.tsv'):
-                subword_predictions_paths.append(os.path.join(root, filename))
-    document_ids = [os.path.basename(x).replace('_biobert_annotated.tsv', '') for x in subword_predictions_paths]
-    if not os.path.exists('results/data'):
-        os.makedirs('results/data')
+    config_yml = 'convert_to_brat_config.yml'
+
+    # # LOAD DATA AND MODELS
+    # config, head_configs, head_dir = load_models(config_yml)
+    # documents = gather_documents(document_dir)  # full paths to documents
+    # document_ids, subword_predictions_paths = gather_predictions(subword_predictions_dir)
+    #
+    # # BRAT CONVERSION
+    # for document_id, subword_predictions_path in zip(document_ids, subword_predictions_paths):
+    #     if not document_id == "sb5b00025":
+    #         continue
+    #     document_path = filter_document_by_id(documents, document_id)
+    #     output_ann_path = os.path.join("results/data", f"{document_id}")
+    #     inferner = InferNERUtils(head_dir, head_configs, model_loading_device=config['device'])
+    #     inferner.load_document(path_to_document=document_path)
+    #     subword_predictions = inferner.parse_predictions(subword_predictions_path)
+    #     predictions = inferner.join_subword_predictions(subword_predictions)
+    #     brat_annotations = inferner.bert_to_brat(predictions)
+    #
+        sorted_annos = sorted(brat_annotations, key=lambda x: x.start)
+        filtered_annos = []
+        for i, anno in enumerate(sorted_annos):
+            if i == 0 or i == len(sorted_annos)-1:
+                continue
+
+            next_anno = sorted_annos[i + 1]
+            if anno.end >= next_anno.end:
+                # get highest score
+                filtered_annos.append(max((anno, next_anno), key=lambda x: x.score))
+            else:
+                filtered_annos.append(anno)
 
 
-    # BRAT CONVERSION
-    for document_id, subword_predictions_path in zip(document_ids, subword_predictions_paths):
-        document_path = filter_document_by_id(document_paths, document_id)
-        output_ann_path = os.path.join("results/data", f"{document_id}")
-        inferner = InferNERUtils(head_dir, head_configs, model_loading_device=config['device'])
-        inferner.load_document(path_to_document=document_path)
-        subword_predictions = inferner.parse_predictions(subword_predictions_path)
-        predictions = inferner.join_subword_predictions(subword_predictions)
-        brat_annotations = inferner.bert_to_brat(predictions)
-        inferner.write_brat(brat_annotations, output_ann_path)
+
+
+
+
+        # inferner.write_brat(brat_annotations, output_ann_path)
+        inferner.write_brat(filtered_annos, "/home/nick/projects/brat-v1.3_Crunchy_Frog/data/acs-100")
 
     end = time.time()
     print(f'Finished in {end - start:0.2f} seconds')

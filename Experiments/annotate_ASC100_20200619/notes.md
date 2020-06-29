@@ -7,18 +7,18 @@ Annotate ACS using BioBERT.
 
 ## TODO
 
-1. ACS Inference
+1. ~~ACS Inference~~
  
-    1.  Create alignment
+    1. ~~Create alignment~~
     
-    2. Map BERT output via alignment
+    2. ~~Map BERT output via alignment~~
     
-    3. Write to BRAT 
+    3. ~~Write to BRAT~~ 
         
 2. Compare BioBERT, Kevin, HUNER. 
     1. Pull Kevin's
  
-3. Doc, Zip, Upload to Willow. 
+3. ~~Upload to Willow.~~ 
 
 ## ACS Inference
 

@@ -1,4 +1,7 @@
-"""predict entities using pre-trained/fine-tuned bert model"""
+"""predict entities using pre-trained/fine-tuned bert model
+Changes:
+    Jun 26, 2020: added 'device' param to the model loader to allow for cpu loading.
+"""
 
 import os, time, json, yaml, re, argparse
 import torch
@@ -12,11 +15,11 @@ from tokenizers import BertWordPieceTokenizer
 from spacy_transformers import TransformersLanguage
 import pandas as pd
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--dry-run", action='store_true', help='dry run')  # by default it stores false
-parser.add_argument("--force-run", action='store_true',
-                    help='Causes documents with existing output files to be overwritten.')
-args = parser.parse_args()
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--dry-run", action='store_true', help='dry run')  # by default it stores false
+# parser.add_argument("--force-run", action='store_true',
+#                     help='Causes documents with existing output files to be overwritten.')
+# args = parser.parse_args()
 
 
 class InferNER(object):
@@ -53,7 +56,7 @@ class InferNER(object):
             self.head_config = BertConfig.from_pretrained(path_to_head_config)
             head_config_dict = json.load(open(os.path.join(self.head_directory, head_configs[i]), 'rb'))
             self.head = SubwordClassificationHead(head_config_dict['head_task'], labels=head_config_dict['labels'])
-            print(self.head.from_pretrained(self.head_directory, device=self.device))
+            print(self.head.from_pretrained(self.head_directory, device=device))
 
             # Collect models
             self.models.append({'head': self.head,
@@ -214,14 +217,18 @@ class InferNER(object):
                                          index=True, index_label="#")
 
     def run_all_documents(self, path_to_document_dir, output_directory=".", recursive=False):
+        print('started running all documents')
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
         file_list = []
         if recursive:
+            print(f'Looking for files to add in {path_to_document_dir}. Searching Recursively')
             for root, directories, filenames in os.walk(path_to_document_dir):
                 for filename in filenames:
+                    # print(f'Found {os.path.join(root, filename)}')
                     file_list.append(os.path.join(root, filename))
         else:
+            print(f'Looking for files to add. Searching {path_to_document_dir}')
             for filename in os.listdir(path_to_document_dir):
                 file_list.append(os.path.join(path_to_document_dir, filename))
         for input_document in file_list:
@@ -249,6 +256,7 @@ if __name__ == '__main__':
     # foo = InferNER(r"/home/rodriguezne2/results/multitasking_transformers/bert/run_2020_03_22_01_52_40_pine.cs.vcu.edu/SubwordClassificationHead_variome_species_checkpoint_10",
     # "SubwordClassificationHead_variome_species.json", device='cpu')
     config = yaml.safe_load(open('config.yml'))
+    print(config)
     # config = yaml.safe_load(open('../Experiments/annotate_ACS100_20200410_0726/config.yml'))
     all_head_paths = sum(list(config['paths_to_heads'].values()), [])
     head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename

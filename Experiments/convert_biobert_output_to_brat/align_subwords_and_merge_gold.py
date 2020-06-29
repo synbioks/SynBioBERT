@@ -15,7 +15,7 @@ import os
 import yaml
 from warnings import warn
 import torch
-from NER import Annotation
+from NER import Conll2Brat
 
 def flatten_alignments(alignments):
     flats = []
