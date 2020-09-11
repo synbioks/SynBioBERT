@@ -15,12 +15,6 @@ from tokenizers import BertWordPieceTokenizer
 from spacy_transformers import TransformersLanguage
 import pandas as pd
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument("--dry-run", action='store_true', help='dry run')  # by default it stores false
-# parser.add_argument("--force-run", action='store_true',
-#                     help='Causes documents with existing output files to be overwritten.')
-# args = parser.parse_args()
-
 
 class InferNER(object):
 
@@ -137,7 +131,7 @@ class InferNER(object):
                 # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
                 self.sentence_encoding = self.tokenizer.encode(self.sentence.string)
                 if len(self.sentence_encoding) > 512:
-                    print(self.sentence)
+                    print(f"This sentence exeeds the maximum token sequence size\n{self.sentence}")
 
                 # PREPARE MODEL INPUT
                 input_ids = torch.tensor([self.sentence_encoding.ids], dtype=torch.long)
@@ -231,19 +225,42 @@ class InferNER(object):
             print(f'Looking for files to add. Searching {path_to_document_dir}')
             for filename in os.listdir(path_to_document_dir):
                 file_list.append(os.path.join(path_to_document_dir, filename))
+
+        log = open('infer.log', 'w')
+        failed_list_log = open('infer_failed_list.log', 'w')
         for input_document in file_list:
             if not input_document.endswith(".txt"):
                 continue
             output_basename = os.path.basename(input_document).replace('.txt', '') + "_biobert_annotated"
             output_filename = output_basename + ".tsv"
+            # Check if the out file exists already, if so skip it.
+            if os.path.exists(os.path.join(output_directory, output_filename)):
+                print(f'Skipping document {input_document}. \nResults already in {output_directory}/{output_filename}')
+                continue
             print(f'Running document {input_document}. \nSaving Results to {output_directory}/{output_filename}')
-            self.run_document(input_document, output_filename, output_directory)
+            try:
+                self.run_document(input_document, output_filename, output_directory)
+            except Exception as e:
+                print(f"Failed to process {output_filename}. See log for error.")
+                print(f"Failed to process {output_filename}: {e}", file=log)
+                print(f"{output_filename}", file=failed_list_log)
+            finally:
+                pass
+
+
+
 
     def __str__(self):
         return self.document.sents
 
 
 if __name__ == '__main__':
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--dry-run", action='store_true', help='dry run')  # by default it stores false
+    # parser.add_argument("--force-run", action='store_true',
+    #                     help='Causes documents with existing output files to be overwritten.')
+    # args = parser.parse_args()
+
     start = time.time()
     # PATH_TO_VOCAB = 'models/vocab.txt'
     # data_dir = 'raw-data'
