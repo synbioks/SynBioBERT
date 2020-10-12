@@ -131,7 +131,9 @@ class InferNER(object):
                 # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
                 self.sentence_encoding = self.tokenizer.encode(self.sentence.string)
                 if len(self.sentence_encoding) > 512:
-                    print(f"This sentence exeeds the maximum token sequence size\n{self.sentence}")
+                    print(f"In document {os.path.basename(output_filename)}, this sentence exeeds the maximum token sequence size\n{self.sentence}")
+                    print("Skipping document")
+                    raise Exception
 
                 # PREPARE MODEL INPUT
                 input_ids = torch.tensor([self.sentence_encoding.ids], dtype=torch.long)
