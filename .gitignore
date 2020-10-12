@@ -3,9 +3,11 @@ raw-data/
 data/
 models/
 *.conll
-Experiments/annotate_ASC100_20200619/subtoken_label_probabilities
+Experiments/annotate_ASC100_20200619/subtoken_label_probabilities/
 Experiments/
-#.idea/
+images/
+notebooks/
+planning/
 
 ###########################################
 # Python / IDE
