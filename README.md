@@ -4,7 +4,7 @@ Tools for refining language models for the Synthetic Biology (SynBio) domain.
 Currently, the language models are implimented using transformer-based algorithms.
 
 InferNER contains code to perform inference on Synthetic Biology articles. It currently
-extracts text that mention:
+extracts text that mentions:
 
 1. Genes
 2. Proteins 
