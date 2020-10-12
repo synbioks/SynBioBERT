@@ -5,17 +5,28 @@ models/
 *.conll
 Experiments/annotate_ASC100_20200619/subtoken_label_probabilities/
 Experiments/
+experiments/
 images/
 notebooks/
 planning/
 log/
 logs/
 examples/
+InferNER/biobert_annotated/
+InferNER/huner_biobert_annotated/
+InferNER/huner_data/
+results_dev/
+InferNER/*tsv
+InferNER/*sh
+InferNER/*out
+InferNER/*yml
+
 
 
 ###########################################
 # Python / IDE
 ###########################################
+# Adapted from https://gist.github.com/MOOOWOOO
 
 # TODO move this to exclude or global
 
