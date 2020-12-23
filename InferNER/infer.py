@@ -5,14 +5,13 @@ Changes:
 
 import os, time, json, yaml, re, argparse
 import torch
+
 from torch.nn.functional import softmax
-from multi_tasking_transformers.heads import SubwordClassificationHead
-# from multi_tasking_transformers.multitaskers import MultiTaskingBert
+from multitasking_transformers.heads import SubwordClassificationHead
 from transformers import BertConfig, BertForTokenClassification, BertModel
-# Transformers https://huggingface.co/transformers/model_doc/bert.html#bertfortokenclassification
 from tokenizers import BertWordPieceTokenizer
-# Tokenizers https://github.com/huggingface/tokenizers/tree/master/bindings/python
 from spacy_transformers import TransformersLanguage
+
 import pandas as pd
 
 
@@ -39,9 +38,11 @@ class InferNER(object):
         # LOAD TOKENIZER AND MODELS
         self.models = []
         for i, head in enumerate(head_directories):
+            
             # LOAD BASE MODEL
             print(f'Loading BERT pre-trained model {head}')
             self.bert = BertModel.from_pretrained(head, from_tf=False)
+
             # LOAD HEAD
             print(f'Loading {head}')
             path_to_head_config = os.path.join(head, head_configs[i])
@@ -50,9 +51,8 @@ class InferNER(object):
             self.head_config = BertConfig.from_pretrained(path_to_head_config)
             head_config_dict = json.load(open(os.path.join(self.head_directory, head_configs[i]), 'rb'))
             self.head = SubwordClassificationHead(head_config_dict['head_task'], labels=head_config_dict['labels'])
-            print(self.head.from_pretrained(self.head_directory, device=device))
 
-            # Collect models
+            # COLLECT MODELS
             self.models.append({'head': self.head,
                                 'base': self.bert,
                                 'entity_type': head.split('_')[-3],
@@ -75,10 +75,6 @@ class InferNER(object):
         self.labels = sorted(self.head.config.labels)  # Fine-tuning may have been done on sorted labels.
 
         self.from_huner = from_huner
-        # TODO align output to document tokens.
-        # TODO visualize
-        # TODO Stats
-        # TODO predict each sentence in batches
 
     def run_document(self, path_to_document, output_filename=None, output_directory="."):
 
@@ -100,6 +96,7 @@ class InferNER(object):
         sentencized_document = self.sentencizer(document_as_string)
         number_of_sentences = len(list(sentencized_document.sents))
         test_stop = 10000000
+
         # number_of_sentences = test_stop
         for model in self.models:
             self.head = model['head']
@@ -126,9 +123,6 @@ class InferNER(object):
 
                 self.sentence = sentence
                 self.sentence_idx = sentence_idx
-                # self.sentence = str(list(sentencized_document.sents)[0])
-                # self.sentence = "The Ca2+ ionophore , A23187 or ionomycin , mimicked the effect of AVP , whereas the protein kinase C ( PKC ) activator , TPA , only induced a slight increase in AA release"
-                # self.sentence = r"Activating mutations in BRAF have been reported in 5–15 % of colorectal carcinomas ( CRC ) , with by far the most common mutation being a 1796T to A transversion leading to a V600E substitution [1-3] .  The BRAF V600E hotspot mutation is strongly associated with the microsatellite instability ( MSI+ ) phenotype but is mutually exclusive with KRAS mutations [4-7] ."
                 self.sentence_encoding = self.tokenizer.encode(self.sentence.string)
                 if len(self.sentence_encoding) > 512:
                     print(f"In document {os.path.basename(output_filename)}, this sentence exeeds the maximum token sequence size\n{self.sentence}")
@@ -180,6 +174,7 @@ class InferNER(object):
 
                     self.predicted_label_probabilities = [self.predicted_label_probabilities[i] for i in subwords_idx]
                     self.output_tokens = [self.sentence_encoding.tokens[i] for i in subwords_idx]
+
                     # Print subword spans
                     self.output_spans_within_sentence = [
                         " ".join([str(span_idx) for span_idx in self.sentence_encoding.offsets[i]])
@@ -235,6 +230,7 @@ class InferNER(object):
                 continue
             output_basename = os.path.basename(input_document).replace('.txt', '') + "_biobert_annotated"
             output_filename = output_basename + ".tsv"
+            
             # Check if the out file exists already, if so skip it.
             if os.path.exists(os.path.join(output_directory, output_filename)):
                 print(f'Skipping document {input_document}. \nResults already in {output_directory}/{output_filename}')
@@ -249,32 +245,14 @@ class InferNER(object):
             finally:
                 pass
 
-
-
-
     def __str__(self):
         return self.document.sents
 
-
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--dry-run", action='store_true', help='dry run')  # by default it stores false
-    # parser.add_argument("--force-run", action='store_true',
-    #                     help='Causes documents with existing output files to be overwritten.')
-    # args = parser.parse_args()
-
     start = time.time()
-    # PATH_TO_VOCAB = 'models/vocab.txt'
-    # data_dir = 'raw-data'
-    # PATH_TO_MODEL = "../models"
-    # PATH_TO_FILE = r'raw-data/ACS-100/sb6/sb6b00371.txt'
-    # with open(PATH_TO_FILE, encoding='utf8') as f:
-    #     document_as_string = f.read()  # does this work for large documents?
-
-    # "SubwordClassificationHead_variome_species.json", device='cpu')
     config = yaml.safe_load(open('config.yml'))
     print(config)
-    # config = yaml.safe_load(open('../Experiments/annotate_ACS100_20200410_0726/config.yml'))
+
     all_head_paths = sum(list(config['paths_to_heads'].values()), [])
     head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename
                     in os.listdir(path_to_head)]
@@ -282,18 +260,6 @@ if __name__ == '__main__':
 
     foo = InferNER(all_head_paths, head_configs, device=config['device'])
     foo.run_all_documents(path_to_document_dir=config['path_to_documents'], output_directory=config['experiment_name'])
-
-    ### RUN SINGLE SENTENCE ###
-    # foo.run_single_example(document_as_string)
-
-    ### RUN SINGLE DOCUMENT ###
-    # foo.run_document(PATH_TO_FILE)
-
-    ### RUN DOCUMENTS IN DIRECTORY
-    # for i in range(3, 10):
-    #     print(f'working on ACS-100/sb{i}')
-    #     foo.run_all_documents(path_to_document_dir=f'../raw-data/ACS-100/sb{i}',
-    #                           output_directory='huner_biobert_annotated')
 
     end = time.time()
     print(f'Finished in {end - start:0.2f} seconds')
