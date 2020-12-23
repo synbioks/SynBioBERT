@@ -1,4 +1,4 @@
-multitasking-transformers==0.0.1
+-e git+https://github.com/NLPatVCU/multitasking_transformers.git
 regex==2020.5.14
 spacy==2.2.3
 spacy-transformers==0.6.1
