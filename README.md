@@ -12,3 +12,7 @@ extracts text that mentions:
 3. Cell lines      
 
 More types of entities will be added to the models as they become available. 
+
+To install: pip install -r requirements.txt 
+
+To run: python infer.py
