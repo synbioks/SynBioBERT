@@ -1,0 +1,14 @@
+# IMPORTANT: Rename this file to convert_to_brat_config.yml
+
+device: 'gpu'
+experiment_name: 'annotate_ACS'
+description: ''
+
+# Post processing parameters
+loading_device: 'gpu'
+skip_list: ['dependent']
+
+
+path_to_documents: '/txt-files/research'
+subword_predictions_dir: "annotate_ACS"
+output_ann_dir: "brat-files"
