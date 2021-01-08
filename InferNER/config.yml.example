@@ -1,0 +1,24 @@
+device: 'cpu' # or 'gpu'
+# experiment name will be used to set output directory for the BERT output tsv.
+experiment_name: 'Name_of_experiment'
+description: 'Description of Experiment'
+
+# Inference parameters
+recursive_search_for_documents: true
+lowercase: true
+
+# Path to the models delinated by their entity type, for example: 
+paths_to_heads:
+  chemical:
+    - '/models/SubwordClassificationHead_chebi_chemical_checkpoint_10'
+  gene:
+    - '/models/SubwordClassificationHead_fsu_gene_checkpoint_19'
+  species:
+    - '/models/SubwordClassificationHead_linneaus_species_checkpoint_16'
+  cellline:
+    - '/models/SubwordClassificationHead_jnlpba_cellline_checkpoint_9'
+
+# Path to the document set, for example: 
+path_to_documents: '/data/txt-files/research'
+
+
