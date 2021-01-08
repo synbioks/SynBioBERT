@@ -5,15 +5,17 @@ Changes:
 
 import os, time, json, yaml, re, argparse
 import torch
-
 from torch.nn.functional import softmax
 from multitasking_transformers.heads import SubwordClassificationHead
 from transformers import BertConfig, BertForTokenClassification, BertModel
+# Transformers https://huggingface.co/transformers/model_doc/bert.html#bertfortokenclassification
 from tokenizers import BertWordPieceTokenizer
+# Tokenizers https://github.com/huggingface/tokenizers/tree/master/bindings/python
 from spacy_transformers import TransformersLanguage
-
 import pandas as pd
 
+
+# TODO predict each sentence in batches
 
 class InferNER(object):
 
@@ -38,11 +40,9 @@ class InferNER(object):
         # LOAD TOKENIZER AND MODELS
         self.models = []
         for i, head in enumerate(head_directories):
-            
             # LOAD BASE MODEL
             print(f'Loading BERT pre-trained model {head}')
             self.bert = BertModel.from_pretrained(head, from_tf=False)
-
             # LOAD HEAD
             print(f'Loading {head}')
             path_to_head_config = os.path.join(head, head_configs[i])
@@ -51,8 +51,9 @@ class InferNER(object):
             self.head_config = BertConfig.from_pretrained(path_to_head_config)
             head_config_dict = json.load(open(os.path.join(self.head_directory, head_configs[i]), 'rb'))
             self.head = SubwordClassificationHead(head_config_dict['head_task'], labels=head_config_dict['labels'])
+            print(self.head.from_pretrained(self.head_directory))
 
-            # COLLECT MODELS
+            # Collect models
             self.models.append({'head': self.head,
                                 'base': self.bert,
                                 'entity_type': head.split('_')[-3],
@@ -83,7 +84,7 @@ class InferNER(object):
             print(f"{output_filename_fullpath} exists, skipping")
             return
 
-        with open(path_to_document, encoding='utf8') as f:
+        with open(path_to_document, encoding='utf-8') as f:
             document_as_string = f.read()  # does this work for large documents?
 
         self.output_dict = {'tokens': [],
@@ -166,7 +167,6 @@ class InferNER(object):
                     self.predicted_labels = [self.labels[label_key] for label_key in
                                              self.predicted_label_keys.cpu().numpy()]
 
-                    # sentence_subword_length = self.sentence_encoding.special_tokens_mask.count(0)
                     token_mask = self.sentence_encoding.special_tokens_mask
 
                     # List of indices containing subwords
@@ -216,21 +216,20 @@ class InferNER(object):
             print(f'Looking for files to add in {path_to_document_dir}. Searching Recursively')
             for root, directories, filenames in os.walk(path_to_document_dir):
                 for filename in filenames:
-                    # print(f'Found {os.path.join(root, filename)}')
                     file_list.append(os.path.join(root, filename))
         else:
             print(f'Looking for files to add. Searching {path_to_document_dir}')
             for filename in os.listdir(path_to_document_dir):
                 file_list.append(os.path.join(path_to_document_dir, filename))
 
-        log = open('infer.log', 'w')
-        failed_list_log = open('infer_failed_list.log', 'w')
+        log = open('infer.log', 'a')
+        failed_list_log = open('infer_failed_list.log', 'a')
         for input_document in file_list:
             if not input_document.endswith(".txt"):
                 continue
             output_basename = os.path.basename(input_document).replace('.txt', '') + "_biobert_annotated"
             output_filename = output_basename + ".tsv"
-            
+
             # Check if the out file exists already, if so skip it.
             if os.path.exists(os.path.join(output_directory, output_filename)):
                 print(f'Skipping document {input_document}. \nResults already in {output_directory}/{output_filename}')
@@ -248,17 +247,18 @@ class InferNER(object):
     def __str__(self):
         return self.document.sents
 
+
 if __name__ == '__main__':
+
     start = time.time()
     config = yaml.safe_load(open('config.yml'))
     print(config)
-
     all_head_paths = sum(list(config['paths_to_heads'].values()), [])
     head_configs = [re.search("SubwordClassification.+json", filename) for path_to_head in all_head_paths for filename
                     in os.listdir(path_to_head)]
     head_configs = [x.group() for x in head_configs if x]
 
-    foo = InferNER(all_head_paths, head_configs, device=config['device'])
+    foo = InferNER(all_head_paths, head_configs)
     foo.run_all_documents(path_to_document_dir=config['path_to_documents'], output_directory=config['experiment_name'])
 
     end = time.time()
