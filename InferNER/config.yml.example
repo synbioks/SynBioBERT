@@ -1,3 +1,5 @@
+#IMPORTANT: rename this file to config.yml
+
 device: 'cpu' # or 'gpu'
 # experiment name will be used to set output directory for the BERT output tsv.
 experiment_name: 'Name_of_experiment'
