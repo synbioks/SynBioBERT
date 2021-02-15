@@ -1,9 +1,30 @@
+"""A program to convert the output of InferNER to BRAT standoff format"""
+import numpy as np
+from tqdm import tqdm
+import yaml
 import os
+import pandas as pd
+
+# from scipy.stats import trim_mean
+# from numpy import median
+# from pprint import pprint
+
+REMOVE_WORDS = ['Figure', 'Table']
 
 
 class BertToBrat:
-    def __init__(self, document=""):
+    """Class for converting BERT output from InferNER to BRAT standoff format
+    Note: method bert_to_brat is not used in the current pipeline (SBKS) """
+
+    def __init__(self, document="", remove_words=None):
         self.document = document
+        if remove_words is None:
+            self.remove_words = remove_words
+        else:
+            if type(remove_words) == list:
+                self.remove_words = remove_words
+            elif remove_words:
+                self.remove_words = REMOVE_WORDS
 
     def load_document(self, path_to_document):
         assert path_to_document.endswith('.txt')
@@ -15,10 +36,10 @@ class BertToBrat:
         return self.document
 
     def join_subword_predictions(self, subword_predictions):
+        """ Join subword predictions into word-level predictions."""
         annotations = []
         for subword in subword_predictions:
             mapped_subword = self.document[subword.start: subword.end]
-            # test_subword_mapping(mapped_subword, subword.token)  # special characters break this test
             subword.original_token = mapped_subword
             if not subword.token.startswith('##'):
                 annotations.append(BertAnnotation(subword.original_token,
@@ -32,9 +53,15 @@ class BertToBrat:
                 anno = annotations[-1]
                 anno.end = subword.end
                 anno.token = self.document[anno.start: subword.end]
+
+        if self.remove_words:
+            for ann in annotations:
+                if any([x_i in ann.token for x_i in self.remove_words]):
+                    ann.label = 'O'
         return annotations
 
-    def bert_to_brat(self, annotations):
+    def __bert_to_brat(self, annotations):
+        """Not used"""
         brat_annotations = []
         T_index = 1
         previous = Annotation('', 0, 0, 'O')
@@ -121,24 +148,48 @@ class Annotation:
         self.label = label
 
     def __str__(self):
-        label = f"-{self.label}" if not self.label == 'O' else ""
-        return f"{self.token}{label}"
+        return f"{self.token}"
+
+    def __repr__(self):
+        return f"{self.token}"
 
 
 class BertAnnotation(Annotation):
+    """A Class to store NER predictions from BERT."""
+
     def __init__(self,
                  token: str,
                  start: int,
                  end: int,
                  label: str,
                  score: float,
-                 original_token=None):
+                 original_token=None,
+                 bio=True):
+        """
+
+        Args:
+            token (): A token as represented after WordPiece tokenization
+            start (): span start
+            end (): span end
+            label (): predicted label
+            score (): model prediction score. Softmax score is recommended
+            original_token (): token as represented in the original document.
+                Depending on how the document was tokenized,
+                things like accents and special characeters may have normalized.
+                This attribute stores the un-normalized form of the token.
+            bio (): boolean value representing whether the labels are in IOB format.
+        """
         super(BertAnnotation, self).__init__(token, start, end, label)
         self.score = score
         self.original_token = original_token
+        if bio and self.label.startswith(('B-', 'I-')):
+            self.entity_type = self.label[2:]
 
 
 class BratAnnotation(Annotation):
+    """A class to store annotations with BRAT standoff attributes, including
+    span start/stop, and index (the "T" index in standoff format).
+    """
     def __init__(self,
                  token: str,
                  start: int,
@@ -147,144 +198,265 @@ class BratAnnotation(Annotation):
                  index=None):
         """
         index: Text-bound index. See BRAT standoff format.
+        In practice, annotations are reindexed just before writing the *.ann file.
+        But this class may be useful for keeping track of annotations during
+        processing.
         """
         super(BratAnnotation, self).__init__(token, start, end, label)
         self.index = index
 
 
-def test_subword_mapping(mapped_subword, subword_token):
-    import warnings
-    if not mapped_subword == subword_token.replace('##', ''):
-        if not len(mapped_subword) == len(subword_token): \
-                warnings.warn(f'"{mapped_subword}": {len(mapped_subword)} "{subword_token}": {len(subword_token)}')
+def view_subword_predictions(predictions, start=0, end=10):
+    """For debugging
+    """
+
+    for i in range(start, end):
+        print(predictions[i].token, "\t", predictions[i].label)
 
 
-def filter_document_by_id(documents, document_id):
-    """Returns the first document who's filename begins with the document_id"""
-    return [path for path in documents if os.path.basename(path).startswith(document_id)][0]
+def join_adjacent_labels(predictions):
+    """" Join adject labels at the word-level"""
+    previous_annotation = predictions[0]
+    # If the first subword is I change to B
+    if previous_annotation.label.startswith('I-'):
+        previous_annotation.label = 'B-' + previous_annotation.label[2:]
+    for current_annotation in predictions[1:]:
+        # Make label B if starting new annotation
+        if current_annotation.label.startswith('I-'):
+            if previous_annotation.label == 'O':
+                current_annotation.label = 'B-' + current_annotation.label[2:]
+
+        # Join annotation with previous if both are B or I
+        if current_annotation.label.startswith(('B-', 'I-')):
+            if previous_annotation.label.startswith(('B-', 'I-')):
+                current_annotation.label = 'I-' + current_annotation.label[2:]
+
+        previous_annotation = current_annotation
 
 
-def gather_documents(document_directory):
-    global document_paths, root, directories, filenames, filename
+def collapse_labels(predictions):
+    """ Flatten labels. Predictions must be BIO labels sorted by entity type """
+    collapsed_labels = []
+    current_annotation = {}
 
-    document_paths = []
-    for root, directories, filenames in os.walk(document_directory):
-        for filename in filenames:
-            if filename.endswith('.txt'):
-                document_paths.append(os.path.join(root, filename))
-    return document_paths
+    for token in predictions:
+        if token.label == 'O':
+            if current_annotation:
+                collapsed_labels.append(current_annotation)
+            current_annotation = {'start': token.start,
+                                  'end': token.end,
+                                  'tokens': [token],
+                                  'label': token.label,
+                                  'scores': [token.score]}
 
+        elif token.label.startswith('B-'):  # start new current_annotation
+            current_annotation = {'start': token.start,
+                                  'end': token.end,
+                                  'tokens': [token],
+                                  'label': token.label[2:],
+                                  'scores': [token.score],
+                                  }
+            # collapsed_labels.append(current_annotation)
 
-def gather_predictions(subword_predictions_directory):
-    subword_predictions_paths = []
-    for root, directories, filenames in os.walk(subword_predictions_directory):
-        for filename in filenames:
-            if filename.endswith('.tsv'):
-                subword_predictions_paths.append(os.path.join(root, filename))
-    doc_ids = [os.path.basename(x).replace('_biobert_annotated.tsv', '') for x in subword_predictions_paths]
-    if not os.path.exists('results/data'):
-        os.makedirs('results/data')
-    return doc_ids, subword_predictions_paths
+        elif token.label.startswith('I-'):
+            current_annotation['end'] = token.end
+            current_annotation['tokens'].append(token)
+            current_annotation['scores'].append(token.score)
 
+    if current_annotation:
+        collapsed_labels.append(current_annotation)
 
-def update_annotation_view(annotation_view, annotation):
-    annotation_view['ents'].append({'start': annotation.start,
-                                    'end': annotation.end,
-                                    'label': annotation.label})
-
-
-def sort_annotations_by_start(annotations):
-    return sorted(annotations, key=lambda x: x.start)
-
-
-def sort_annotations_by_end(annotations):
-    return sorted(annotations, key=lambda x: x.end)
+    return collapsed_labels
 
 
-if __name__ == '__main__':
-    '''
-    '''
-    import time
-    import yaml
+def mean(numbers):
+    return sum(numbers) / len(numbers)
 
-    start = time.time()
 
-    ## INPUTS
-    config_yml = 'convert_to_brat_config.yml'
+def get_collapased_annotations(predictions_dir, path_to_documents, document_id,
+                               remove_words=None):
+    document_basename, file_predictions = get_predictions_file(document_id, predictions_dir)
 
-    with open(config_yml) as yml:
-        config = yaml.safe_load(yml)
-    document_dir = config['path_to_documents']
-    subword_predictions_dir = config['subword_predictions_dir']
+    bert_to_brat = BertToBrat(remove_words=remove_words)
+    doc = bert_to_brat.load_document(
+        os.path.join(path_to_documents, document_basename)
+    )
+    subword_predictions = bert_to_brat.parse_predictions(file_predictions)
+    predictions = bert_to_brat.join_subword_predictions(subword_predictions)
 
-    ## OUTPUTS
-    # output_ann_dir = "/home/nick/projects/brat-v1.3_Crunchy_Frog/data/acs-100"  # DEV
-    output_ann_dir = config['output_ann_dir']  # Exp
+    join_adjacent_labels(predictions)
 
-    # LOAD DATA AND MODELS
-    documents = gather_documents(document_dir)  # full paths to documents
-    document_ids, subword_predictions_paths = gather_predictions(subword_predictions_dir)
+    # Debugging
+    # print(view_subword_predictions(predictions, 200, 300))
 
-    # BRAT CONVERSION
-    for document_id, subword_predictions_path in zip(document_ids, subword_predictions_paths):
-        print(document_id)
-        print(f'working on {document_id}')
-        document_path = filter_document_by_id(documents, document_id)
-        output_ann_path = os.path.join(output_ann_dir, f"{document_id}")
-        bert_to_brat = BertToBrat()
-        bert_to_brat.load_document(path_to_document=document_path)
-        subword_predictions = bert_to_brat.parse_predictions(subword_predictions_path)
-        predictions = bert_to_brat.join_subword_predictions(subword_predictions)
-        brat_annotations = bert_to_brat.bert_to_brat(predictions)
-        filtered_annos = {'ents': [], 'text': bert_to_brat.document}  # note: ents has to be sorted
+    return collapse_labels(predictions), doc
 
-        # Join consecutive annotations of same label
-        i = len(brat_annotations) - 1
-        while i > -1:
-            current = brat_annotations[i]
-            if i > 0:
-                previous = brat_annotations[i - 1]
-                if current.start - previous.end <= 1 and \
-                        current.label == previous.label:
-                    previous.end = current.end
-                    previous.token = bert_to_brat.document[previous.start: previous.end]
-                    # # Average their scores
-                    # previous.score = sum((current.score, previous.score)) / 2
-                    # Keep best score
-                    previous.score = max(current.score, previous.score)
-                    brat_annotations.pop(i)
-                else:
-                    update_annotation_view(filtered_annos, current)
-            else:
-                update_annotation_view(filtered_annos, current)
-            i -= 1
 
-        # Resolve overlapping
-        sorted_annos = sort_annotations_by_start(brat_annotations)
-        sorted_annos = [anno for anno in sorted_annos if anno.token.strip() != '.']
-        filtered_annos = {'ents': [], 'text': bert_to_brat.document}  # note: ents has to be sorted
-        i = len(sorted_annos) - 1
-        while i > -1:
-            current = sorted_annos[i]
-            if i > 0:
-                previous = sorted_annos[i - 1]
-                if previous.end > current.start:
-                    longest_spaning = max(previous, current, key=lambda x: x.end - x.start)
-                    sorted_annos[i - 1] = longest_spaning
-                    sorted_annos.pop(i)
-                elif (previous.start == current.start) and (previous.end == current.end):
-                    best_scoring = max(previous, current, key=lambda x: x.score)
-                    sorted_annos[i - 1] = best_scoring
-                    sorted_annos.pop(i)
+def get_predictions_file(document_id, predictions_dir):
+    # document_id = 'sb5b00016'
+    document_basename = f'{document_id}.txt'
+    file_predictions = f"{predictions_dir}/{document_id}_biobert_annotated.tsv"
+    return document_basename, file_predictions
 
-                else:
-                    update_annotation_view(filtered_annos, current)
-            else:
-                update_annotation_view(filtered_annos, current)
 
-            i -= 1
+def write_text_document(doc, document_id, output_dir):
+    output_doc_name = f'{document_id}.txt'
+    with open(os.path.join(output_dir, output_doc_name), 'w') as f:
+        f.write(doc)
 
-        bert_to_brat.write_brat(sorted_annos, output_path=output_ann_path)
 
-    end = time.time()
-    print(f'Finished in {end - start:0.2f} seconds')
+def write_annotation_file(brat_ann_df, document_id, output_dir):
+    output_ann_name = f'{document_id}.ann'
+    brat_ann_df.to_csv(path_or_buf=os.path.join(output_dir, output_ann_name),
+                       sep='\t', header=False, index=False)
+
+
+def to_standoff_df(df, doc):
+    anns = df[df['label'] != 'O']
+    brat_lines = []
+    t_id = 1
+    for n, span in anns.iterrows():
+        # Text-bound annotation ID
+        t_idx = f'T{t_id}'
+        t_id += 1
+
+        # Label and Span-index
+        label = span['label']
+        start = span['start']
+        end = span['end']
+
+        # Token string extracted from the document
+        token = doc[start: end]
+        brat_lines.append([t_idx, f'{label} {start} {end}', token])
+    brat_ann_df = pd.DataFrame(brat_lines)
+    return brat_ann_df
+
+
+def keep_max_scoring_spans(df):
+    """ If the case of overlapping prediction spans, keep the span with the
+    highest score
+    Returns: A filtered dataframe containing only the highest scoring spans with
+    no overlap.
+    """
+    df = df[df.groupby(['overlap_group']).avg_score.transform(max) == df.avg_score]
+    return df
+
+
+def assign_overlap_group(df, include_O_labels=True):
+    """ Assign spans to groups that overlap. Overlapping groups can contain
+    more than two overlapping spans.
+    Args:
+        df ():
+        include_O_labels (): Whether to consider O labels (IOB-format) in resolving
+        overlaps. If True, the scores for O labels (which tend to be quite high)
+        are compared to all other scores in the overlap group. Turning this on
+        will signigicantly reduce the number of remain annotations after overlap
+        resolution.
+
+    Returns: A dataframe with no overlapping annotation spans.
+
+    """
+    df_copy = df.copy()
+    if include_O_labels:
+        sorted_spans = df_copy.sort_values(['start', 'end'])
+        df_copy = df_copy.assign(overlap_group=(
+                sorted_spans.end - sorted_spans.start.shift(-1)).shift().lt(1).cumsum())  # lt = less than.
+    else:
+        df_copy['overlap_group'] = np.nan
+        mentions = df_copy[df_copy.label != 'O']
+        sorted_spans = mentions.sort_values(['start', 'end'])
+        mentions = mentions.assign(overlap_group=(
+                sorted_spans.end - sorted_spans.start.shift(-1)).shift().lt(1).cumsum())  # lt = less than.
+        df_copy.loc[mentions.index] = mentions
+    return df_copy
+
+
+def remove_duplicate_O_labels(ann):
+    """ During Inference, the documents may be have inference performed more than once,
+    like for instance more than one model is used. This that case, the document
+    will be repeated multiple times in the infernece program output. In order to
+    focus on relevant annotations in downstream processing, duplicate O labels are
+    removed.
+    """
+    for record in ann:
+        record['string'] = " ".join([str(x) for x in record['tokens']])
+    df = pd.DataFrame.from_records(ann)
+    df = df.drop_duplicates(subset=['start', 'end', 'string', 'label'], keep='first')
+    return df
+
+
+def remove_single_char_mentions(ann):
+    for record in ann:
+        if record['label'] != 'O' and record['end'] - record['start'] == 1:
+            record['label'] = 'O'
+            record['tokens'][0].label = 'O'
+    return ann
+
+
+if __name__ == "__main__":
+    # TODO make cli
+
+    # I/O
+    # document_id = 'sb5b00016'
+    # test_document_basename = f'{document_id}.txt'
+    with open('convert_to_brat_config.yml') as config_file:
+        config = yaml.safe_load(config_file)
+
+    path_to_documents = config['path_to_documents']
+    predictions_dir = config['subword_predictions_dir']
+    output_dir = config['output_ann_dir']
+
+    # PREDICTIONS
+
+    # DOCUMENTS
+    doc_list = []
+    doc_ids = []
+    for filename in os.listdir(path_to_documents):
+        doc_list.append(os.path.join(path_to_documents, filename))
+        doc_ids.append(filename.replace('.txt', ''))
+
+    # OUTPUT
+    os.makedirs(output_dir, exist_ok=True)
+
+    # WRITE ANNOTATIONS
+
+    # Degugging
+    # doc_ids = ['sb300129j']
+
+    for document_id in tqdm(doc_ids):
+        try:
+            ann, doc = get_collapased_annotations(predictions_dir, path_to_documents, document_id,
+                                                  remove_words=['Figure', 'Table'])
+            ann = sorted(ann, key=lambda x: x['start'])  # sorted annotation by start
+            # remove single character entities
+            ann = remove_single_char_mentions(ann)
+
+            # Debugging. Test for single character annotations
+            # pprint([record for record in ann if record['label'] != 'O' and record['end'] - record['start'] == 1])
+
+            # remove duplicate O
+            df = remove_duplicate_O_labels(ann)
+
+            # average score column
+            df['avg_score'] = df.scores.apply(mean)
+            # df['median_score'] = df.scores.apply(median)
+            # df['trim_mean'] = df.scores.apply(trim_mean, proportiontocut=0.4)
+
+            # group overlapping spans
+            df = assign_overlap_group(df, include_O_labels=False)
+
+            # keep max scoring annotation within each overlap group
+            df = keep_max_scoring_spans(df)
+
+            # Collect annotations. Write to Brat standoff format
+            brat_ann_df = to_standoff_df(df, doc)
+
+            # Write Document and Annotation Files
+            # write ann
+            write_annotation_file(brat_ann_df, document_id, output_dir)
+            # write doc
+            write_text_document(doc, document_id, output_dir)
+
+        except FileNotFoundError:
+            print(f'could not parse predictions for {document_id}')
+            continue
